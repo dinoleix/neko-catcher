@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// ============================================================
+// GreenNeko shared Firestore rules
+// ------------------------------------------------------------
+// One "scores" collection is shared across ALL GreenNeko games.
+// Each row is tagged with `game` (e.g. "neko-catcher") so every
+// game can keep its own leaderboard.
+//
+// ⚠️ REVIEW BEFORE DEPLOYING: this DB is already used by your other
+// games. Deploying replaces ALL current rules. Make sure every game
+// that writes to `scores` includes the fields validated below
+// (especially `game`), or its score writes will start being rejected.
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Public weekly leaderboard collection.
+    match /scores/{scoreId} {
+      // Anyone may read the leaderboard.
+      allow read: if true;
+
+      // Anyone may submit a score, but it must be well-formed.
+      // This blocks junk/abuse even though the API key is public.
+      allow create: if isValidScore(request.resource.data);
+
+      // Scores are immutable from the client — no edits or deletes.
+      // (Manage/clear them from the Firebase console or Admin SDK.)
+      allow update, delete: if false;
+    }
+
+    function isValidScore(d) {
+      return d.keys().hasOnly(['game', 'name', 'score', 'week', 'createdAt'])
+        && d.game is string && d.game.size() > 0 && d.game.size() <= 40
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 14
+        && d.score is int && d.score >= 0 && d.score <= 1000000
+        && d.week is string && d.week.size() > 0 && d.week.size() <= 12
+        // serverTimestamp() must equal the server's request time —
+        // clients can't backdate or spoof it.
+        && d.createdAt == request.time;
+    }
+  }
+}
