@@ -2,3 +2,8 @@
 node_modules/
 .vercel/
 *.log
+
+# Never commit secrets (e.g. VITE_ADMIN_PASSWORD)
+.env
+.env.*
+!.env.example
