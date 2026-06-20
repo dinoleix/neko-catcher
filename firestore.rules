@@ -1,24 +1,54 @@
 rules_version = '2';
 
 // ============================================================
-// GreenNeko shared Firestore rules
+// GreenNeko shared Firestore rules (project: games-dd1a8)
 // ------------------------------------------------------------
-// One "scores" collection is shared across ALL GreenNeko games.
-// Each row SHOULD be tagged with `game` (e.g. "neko-catcher") so
-// every game can keep its own leaderboard.
+// This project's database is shared by multiple games:
+//   • Cat Hunt Café  -> "leaderboard" + "prizes" collections
+//   • Neko Catcher   -> "scores" collection (this PWA)
 //
-// This is the TOLERANT ruleset: safe to deploy even if some of your
-// older games don't tag `game` yet or write a few extra fields.
-// It only enforces the minimum the leaderboard depends on
-// (score / name / week) plus basic anti-abuse limits.
-//
-// Once EVERY game tags `game` and writes a server timestamp, switch
-// to the STRICT block at the bottom for tighter validation.
+// Each game uses its OWN collection, so leaderboards stay separate.
+// When adding a new game, give it its own collection + rule block here.
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Public weekly leaderboard collection.
+    // =====================================================
+    // Cat Hunt Café  (existing game — left exactly as-is)
+    // =====================================================
+
+    // ---- Leaderboard ----
+    match /leaderboard/{entry} {
+      allow read: if true;
+
+      // A new score must look like a real score.
+      allow create: if
+        request.resource.data.name is string &&
+        request.resource.data.name.size() <= 20 &&
+        request.resource.data.cats is int &&
+        request.resource.data.cats >= 0 && request.resource.data.cats <= 100 &&
+        request.resource.data.timeMs is int &&
+        request.resource.data.timeMs >= 0 &&
+        request.resource.data.level is int;
+
+      // Admin "set winner" tags an existing entry; allow updates but never let
+      // the core score change, and never allow deletes.
+      allow update: if
+        request.resource.data.name == resource.data.name &&
+        request.resource.data.cats == resource.data.cats &&
+        request.resource.data.timeMs == resource.data.timeMs;
+      allow delete: if false;
+    }
+
+    // ---- Prizes (admin config) ----
+    match /prizes/{prize} {
+      allow read: if true;
+      allow write: if true; // admin panel manages these from the browser
+    }
+
+    // =====================================================
+    // Neko Catcher  (this PWA — public weekly leaderboard)
+    // =====================================================
     match /scores/{scoreId} {
       // Anyone may read the leaderboard.
       allow read: if true;
@@ -27,13 +57,11 @@ service cloud.firestore {
       allow create: if isValidScore(request.resource.data);
 
       // Scores are immutable from the client — no edits or deletes.
-      // (Manage/clear them from the Firebase console or Admin SDK.)
       allow update, delete: if false;
     }
 
-    // --- TOLERANT validation (active) ---
     // Required: score (int), name (string), week (string).
-    // Optional: game, createdAt, and any other fields your games add.
+    // Optional: game, createdAt, and any extra fields.
     function isValidScore(d) {
       return d.score is int && d.score >= 0 && d.score <= 1000000
         && d.name is string && d.name.size() > 0 && d.name.size() <= 40
@@ -41,18 +69,5 @@ service cloud.firestore {
         && (!('game' in d) || (d.game is string && d.game.size() <= 40))
         && (!('createdAt' in d) || d.createdAt is timestamp);
     }
-
-    // --- STRICT validation (hardening upgrade) ---
-    // Once all games tag `game` and use serverTimestamp(), replace the
-    // call above with isValidScoreStrict and delete isValidScore:
-    //
-    // function isValidScoreStrict(d) {
-    //   return d.keys().hasOnly(['game', 'name', 'score', 'week', 'createdAt'])
-    //     && d.game is string && d.game.size() > 0 && d.game.size() <= 40
-    //     && d.name is string && d.name.size() > 0 && d.name.size() <= 14
-    //     && d.score is int && d.score >= 0 && d.score <= 1000000
-    //     && d.week is string && d.week.size() > 0 && d.week.size() <= 12
-    //     && d.createdAt == request.time;
-    // }
   }
 }
