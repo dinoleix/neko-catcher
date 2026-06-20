@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0d3b2e" />
+<title>Neko Catcher 🐾 GreenNeko Café</title>
+
+<!-- PWA: installable app -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="description" content="Catch the cats, top the leaderboard, win free ramen or boba at GreenNeko Café!" />
+
+<!-- iOS / Safari home-screen (iOS ignores the manifest, so these are required) -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Neko Catcher" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+<!-- Icons -->
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<style>
+  :root {
+    --dark-green: #0d3b2e;
+    --deep-green: #14543f;
+    --matcha: #a8c66c;
+    --matcha-bright: #c5e07a;
+    --cream: #f5f1e3;
+    --white: #ffffff;
+    --black: #14110f;
+    --sakura: #ffb7c5;
+    --shadow: rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: var(--dark-green);
+    color: var(--cream);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at top, var(--deep-green) 0%, var(--dark-green) 60%, #061d16 100%);
+  }
+
+  /* Subtle sakura/kanji background decoration */
+  #app::before {
+    content: "猫";
+    position: absolute;
+    top: 8%;
+    right: -10px;
+    font-size: 28vh;
+    color: rgba(168, 198, 108, 0.06);
+    font-weight: 900;
+    pointer-events: none;
+    z-index: 0;
+    line-height: 1;
+  }
+  #app::after {
+    content: "🌸";
+    position: absolute;
+    bottom: 4%;
+    left: 4%;
+    font-size: 6vh;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1;
+  }
+  .screen.active { display: flex; }
+
+  /* ---------- START SCREEN ---------- */
+  .logo-wrap {
+    text-align: center;
+    margin-bottom: 28px;
+    z-index: 2;
+  }
+  .logo-mark {
+    font-size: 72px;
+    line-height: 1;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50% { transform: translateY(-8px) rotate(3deg); }
+  }
+  .logo-title {
+    font-size: 38px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin: 8px 0 2px;
+    color: var(--matcha-bright);
+    text-shadow: 0 2px 0 var(--black), 0 0 24px rgba(168,198,108,0.4);
+  }
+  .logo-jp {
+    font-size: 14px;
+    letter-spacing: 0.4em;
+    color: var(--matcha);
+    opacity: 0.85;
+    margin-bottom: 6px;
+  }
+  .logo-tag {
+    font-size: 13px;
+    color: var(--cream);
+    opacity: 0.7;
+  }
+
+  .form-card {
+    width: 100%;
+    max-width: 340px;
+    background: rgba(20, 84, 63, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(168, 198, 108, 0.25);
+    border-radius: 20px;
+    padding: 22px 20px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+    z-index: 2;
+  }
+
+  label.field-label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--matcha-bright);
+    margin-bottom: 8px;
+    opacity: 0.9;
+  }
+  .name-input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 17px;
+    background: rgba(0,0,0,0.3);
+    border: 2px solid rgba(168,198,108,0.4);
+    color: var(--cream);
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-weight: 600;
+  }
+  .name-input:focus {
+    border-color: var(--matcha-bright);
+    box-shadow: 0 0 0 4px rgba(168,198,108,0.15);
+  }
+  .name-input::placeholder { color: rgba(245,241,227,0.4); }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 16px;
+    margin-top: 12px;
+    border: none;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: transform 0.08s, box-shadow 0.2s;
+    font-family: inherit;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--matcha) 0%, var(--matcha-bright) 100%);
+    color: var(--black);
+    box-shadow: 0 6px 0 #6a8a3e, 0 10px 24px rgba(0,0,0,0.3);
+  }
+  .btn-primary:active { box-shadow: 0 2px 0 #6a8a3e, 0 4px 12px rgba(0,0,0,0.3); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--matcha-bright);
+    border: 2px solid rgba(168,198,108,0.4);
+  }
+  .btn-ghost:active { background: rgba(168,198,108,0.1); }
+
+  .prize-banner {
+    margin-top: 20px;
+    padding: 12px 16px;
+    background: linear-gradient(90deg, rgba(255,183,197,0.15), rgba(168,198,108,0.15));
+    border: 1px dashed var(--sakura);
+    border-radius: 12px;
+    font-size: 13px;
+    text-align: center;
+    line-height: 1.5;
+    color: var(--cream);
+    max-width: 340px;
+    z-index: 2;
+  }
+  .prize-banner strong { color: var(--sakura); }
+
+  .input-error {
+    color: var(--sakura);
+    font-size: 12px;
+    margin-top: 8px;
+    min-height: 16px;
+  }
+
+  /* ---------- GAME SCREEN ---------- */
+  .hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 14px 16px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .score-box {
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(168,198,108,0.35);
+    border-radius: 12px;
+    padding: 8px 14px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .score-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--matcha-bright);
+    text-transform: uppercase;
+  }
+  .score-value {
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--white);
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .lives-box {
+    display: flex;
+    gap: 6px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(168,198,108,0.35);
+    border-radius: 12px;
+    padding: 10px 12px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .life {
+    font-size: 20px;
+    line-height: 1;
+    transition: transform 0.3s, opacity 0.3s, filter 0.3s;
+  }
+  .life.lost {
+    opacity: 0.2;
+    filter: grayscale(1);
+    transform: scale(0.7);
+  }
+
+  .timer-track {
+    position: absolute;
+    top: 70px;
+    left: 16px;
+    right: 16px;
+    height: 6px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 3px;
+    overflow: hidden;
+    z-index: 10;
+  }
+  .timer-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--matcha-bright), var(--matcha));
+    transition: width 0.1s linear, background 0.3s;
+    border-radius: 3px;
+  }
+  .timer-fill.warning {
+    background: linear-gradient(90deg, var(--sakura), #ff8a9e);
+  }
+
+  .speed-pill {
+    position: absolute;
+    top: 86px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(168,198,108,0.35);
+    color: var(--matcha-bright);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .speed-pill.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    animation: speedPop 0.6s ease-out;
+  }
+  @keyframes speedPop {
+    0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+    50% { transform: translateX(-50%) scale(1.2); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  }
+
+  #gameCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+  }
+
+  /* Screen shake on miss */
+  .shake {
+    animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  }
+  @keyframes shake {
+    10%, 90% { transform: translate(-2px, 0); }
+    20%, 80% { transform: translate(4px, 0); }
+    30%, 50%, 70% { transform: translate(-6px, 0); }
+    40%, 60% { transform: translate(6px, 0); }
+  }
+
+  /* Red flash overlay on miss */
+  .miss-flash {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(255,99,124,0.0), rgba(255,99,124,0.35));
+    pointer-events: none;
+    opacity: 0;
+    z-index: 5;
+  }
+  .miss-flash.flash {
+    animation: flashAnim 0.35s ease-out;
+  }
+  @keyframes flashAnim {
+    0% { opacity: 0; }
+    30% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Pop effect on catch */
+  .pop {
+    position: absolute;
+    pointer-events: none;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--matcha-bright);
+    text-shadow: 0 2px 0 var(--black);
+    animation: popUp 0.7s ease-out forwards;
+    z-index: 20;
+  }
+  @keyframes popUp {
+    0% { transform: translate(-50%, 0) scale(0.5); opacity: 1; }
+    50% { transform: translate(-50%, -30px) scale(1.3); opacity: 1; }
+    100% { transform: translate(-50%, -60px) scale(0.9); opacity: 0; }
+  }
+
+  /* ---------- GAME OVER SCREEN ---------- */
+  .over-card {
+    max-width: 360px;
+    width: 100%;
+    background: rgba(20, 84, 63, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(168,198,108,0.3);
+    border-radius: 24px;
+    padding: 28px 24px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    z-index: 2;
+  }
+  .over-title {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--matcha-bright);
+    margin: 0 0 4px;
+  }
+  .over-sub {
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--cream);
+    opacity: 0.7;
+    margin-bottom: 20px;
+  }
+  .final-score {
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--white);
+    margin: 8px 0 4px;
+    text-shadow: 0 4px 0 var(--black), 0 0 24px rgba(168,198,108,0.4);
+  }
+  .final-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--matcha);
+    margin-bottom: 24px;
+  }
+  .submit-status {
+    font-size: 12px;
+    color: var(--matcha-bright);
+    min-height: 18px;
+    margin-top: 10px;
+  }
+  .submit-status.error { color: var(--sakura); }
+
+  /* ---------- LEADERBOARD ---------- */
+  .lb-wrap {
+    width: 100%;
+    max-width: 400px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    z-index: 2;
+  }
+  .lb-header {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .lb-title {
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--matcha-bright);
+    margin: 0 0 4px;
+  }
+  .lb-sub {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cream);
+    opacity: 0.7;
+  }
+  .lb-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 4px 12px;
+  }
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(168,198,108,0.18);
+    border-radius: 12px;
+  }
+  .lb-row.top1 {
+    background: linear-gradient(90deg, rgba(255,215,0,0.18), rgba(168,198,108,0.18));
+    border-color: rgba(255,215,0,0.5);
+  }
+  .lb-row.top2 { border-color: rgba(192,192,192,0.5); }
+  .lb-row.top3 { border-color: rgba(205,127,50,0.5); }
+  .lb-rank {
+    width: 28px;
+    font-weight: 900;
+    color: var(--matcha-bright);
+    font-size: 16px;
+    text-align: center;
+  }
+  .lb-row.top1 .lb-rank { color: gold; }
+  .lb-name {
+    flex: 1;
+    font-weight: 700;
+    color: var(--white);
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb-score {
+    font-weight: 900;
+    color: var(--matcha-bright);
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+  }
+  .lb-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--cream);
+    opacity: 0.6;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .lb-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--matcha-bright);
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .lb-actions {
+    padding: 0 4px;
+  }
+
+  .offline-toast {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,183,197,0.15);
+    border: 1px solid var(--sakura);
+    color: var(--sakura);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    z-index: 30;
+    display: none;
+  }
+  .offline-toast.show { display: block; }
+
+  @media (max-height: 600px) {
+    .logo-mark { font-size: 56px; }
+    .logo-title { font-size: 30px; }
+    .final-score { font-size: 56px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- START SCREEN -->
+  <section id="screen-start" class="screen active">
+    <div class="logo-wrap">
+      <div class="logo-mark">🐈‍⬛</div>
+      <h1 class="logo-title">Neko Catcher</h1>
+      <div class="logo-jp">猫 キャッチャー</div>
+      <div class="logo-tag">by GreenNeko Café</div>
+    </div>
+
+    <div class="form-card">
+      <label class="field-label" for="playerName">Enter your name</label>
+      <input
+        id="playerName"
+        class="name-input"
+        type="text"
+        maxlength="14"
+        autocomplete="off"
+        autocapitalize="words"
+        placeholder="First name..."
+      />
+      <div id="nameError" class="input-error"></div>
+      <button id="btnPlay" class="btn btn-primary">▶ PLAY</button>
+      <button id="btnLeaderboard" class="btn btn-ghost">🏆 Leaderboard</button>
+    </div>
+
+    <div class="prize-banner">
+      Top catcher wins a <strong>FREE ramen or boba!</strong> 🍜🧋
+    </div>
+  </section>
+
+  <!-- GAME SCREEN -->
+  <section id="screen-game" class="screen">
+    <div class="hud">
+      <div class="score-box">
+        <div class="score-label">Score</div>
+        <div id="scoreValue" class="score-value">0</div>
+      </div>
+      <div id="livesBox" class="lives-box">
+        <span class="life">🐾</span>
+        <span class="life">🐾</span>
+        <span class="life">🐾</span>
+      </div>
+    </div>
+    <div class="timer-track"><div id="timerFill" class="timer-fill"></div></div>
+    <div id="speedPill" class="speed-pill">Speed Up! ⚡</div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="missFlash" class="miss-flash"></div>
+  </section>
+
+  <!-- GAME OVER SCREEN -->
+  <section id="screen-over" class="screen">
+    <div class="over-card">
+      <h2 class="over-title">Nya~ Game Over</h2>
+      <div class="over-sub">ねこ キャッチ 終了</div>
+      <div id="finalScore" class="final-score">0</div>
+      <div class="final-label">Cats Caught</div>
+
+      <button id="btnSubmit" class="btn btn-primary">📤 Submit Score</button>
+      <button id="btnPlayAgain" class="btn btn-ghost">↻ Play Again</button>
+      <button id="btnOverLb" class="btn btn-ghost">🏆 Leaderboard</button>
+      <div id="submitStatus" class="submit-status"></div>
+    </div>
+  </section>
+
+  <!-- LEADERBOARD SCREEN -->
+  <section id="screen-lb" class="screen">
+    <div class="lb-wrap">
+      <div class="lb-header">
+        <h2 class="lb-title">🏆 This Week's Top Catchers</h2>
+        <div class="lb-sub">Resets every Monday · Top 10</div>
+      </div>
+      <div id="lbList" class="lb-list">
+        <div class="lb-loading">Loading...</div>
+      </div>
+      <div class="lb-actions">
+        <button id="btnLbBack" class="btn btn-primary">← Back</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="offlineToast" class="offline-toast">Offline mode · scores won't sync</div>
+</div>
+
+<!-- Firebase (loaded as ES modules from CDN) -->
+<script type="module">
+  // ============================================================
+  // FIREBASE CONFIG — replace with your GreenNeko Firebase project
+  // ============================================================
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAF80e7iFM87xCr7jRzE8jtrmFSAPUzrTE",
+    authDomain: "games-dd1a8.firebaseapp.com",
+    projectId: "games-dd1a8",
+    storageBucket: "games-dd1a8.firebasestorage.app",
+    messagingSenderId: "533748049252",
+    appId: "1:533748049252:web:57fb5ff6be4dd5f103c671"
+  };
+
+  let firestoreReady = false;
+  let db = null;
+  let firestoreApi = null;
+
+  async function initFirebase() {
+    try {
+      if (FIREBASE_CONFIG.apiKey.startsWith("REPLACE")) {
+        console.warn("[NekoCatcher] Firebase not configured — leaderboard disabled. Add your config in index.html.");
+        window.__nekoOffline = true;
+        document.getElementById("offlineToast").classList.add("show");
+        setTimeout(() => document.getElementById("offlineToast").classList.remove("show"), 4000);
+        return;
+      }
+      const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+      const fsMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      const app = appMod.initializeApp(FIREBASE_CONFIG);
+      db = fsMod.getFirestore(app);
+      firestoreApi = fsMod;
+      firestoreReady = true;
+      window.__nekoOffline = false;
+    } catch (err) {
+      console.warn("[NekoCatcher] Firebase init failed — running offline.", err);
+      window.__nekoOffline = true;
+      document.getElementById("offlineToast").classList.add("show");
+      setTimeout(() => document.getElementById("offlineToast").classList.remove("show"), 4000);
+    }
+  }
+
+  window.__nekoSubmitScore = async function(name, score) {
+    if (!firestoreReady) throw new Error("offline");
+    const { collection, addDoc, serverTimestamp } = firestoreApi;
+    await addDoc(collection(db, "scores"), {
+      name: name.slice(0, 14),
+      score: Math.max(0, Math.floor(score)),
+      createdAt: serverTimestamp(),
+      week: getWeekKey()
+    });
+  };
+
+  window.__nekoFetchLeaderboard = async function() {
+    if (!firestoreReady) throw new Error("offline");
+    const { collection, query, where, orderBy, limit, getDocs } = firestoreApi;
+    const weekKey = getWeekKey();
+    const q = query(
+      collection(db, "scores"),
+      where("week", "==", weekKey),
+      orderBy("score", "desc"),
+      limit(10)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data());
+  };
+
+  function getWeekKey() {
+    // ISO week (Mon-Sun) — yyyy-Www
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+    const week1 = new Date(d.getFullYear(), 0, 4);
+    const weekNum = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+  }
+  window.__nekoWeekKey = getWeekKey;
+
+  initFirebase();
+</script>
+
+<script>
+// ============================================================
+// NEKO CATCHER — game logic
+// ============================================================
+(function () {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+
+  const screens = {
+    start: $("screen-start"),
+    game: $("screen-game"),
+    over: $("screen-over"),
+    lb: $("screen-lb")
+  };
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.remove("active"));
+    screens[name].classList.add("active");
+  }
+
+  // ----- Canvas setup -----
+  const canvas = $("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let W = 0, H = 0;
+
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+  }
+  window.addEventListener("resize", resizeCanvas);
+
+  // ----- Audio (subtle synth) -----
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  }
+  function playCatch() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(680, now);
+    o.frequency.exponentialRampToValueAtTime(1320, now + 0.09);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.15, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(now);
+    o.stop(now + 0.2);
+  }
+  function playMiss() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(220, now);
+    o.frequency.exponentialRampToValueAtTime(90, now + 0.18);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(now);
+    o.stop(now + 0.25);
+  }
+
+  // ----- Cat drawing (pixel-art style) -----
+  // Cats are drawn from primitive shapes for crisp scaling.
+  // Black cat with matcha-green glowing eyes.
+  function drawCat(x, y, size, dir, t) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (dir < 0) ctx.scale(-1, 1);
+
+    const s = size;
+    // Shadow
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.55, s * 0.5, s * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body bob
+    const bob = Math.sin(t * 0.015) * s * 0.04;
+    ctx.translate(0, bob);
+
+    // Tail (waggle)
+    const tailA = Math.sin(t * 0.02) * 0.6;
+    ctx.save();
+    ctx.translate(-s * 0.4, -s * 0.05);
+    ctx.rotate(-0.5 + tailA);
+    ctx.fillStyle = "#1a1714";
+    ctx.fillRect(-s * 0.05, -s * 0.45, s * 0.1, s * 0.5);
+    // Tail tip
+    ctx.fillStyle = "#0d0a08";
+    ctx.fillRect(-s * 0.07, -s * 0.5, s * 0.14, s * 0.1);
+    ctx.restore();
+
+    // Body
+    ctx.fillStyle = "#1a1714";
+    roundRect(-s * 0.45, -s * 0.2, s * 0.9, s * 0.55, s * 0.18);
+    // Body highlight
+    ctx.fillStyle = "rgba(168,198,108,0.06)";
+    roundRect(-s * 0.4, -s * 0.18, s * 0.8, s * 0.15, s * 0.12);
+
+    // Head
+    ctx.fillStyle = "#1a1714";
+    roundRect(s * 0.05, -s * 0.45, s * 0.5, s * 0.42, s * 0.14);
+
+    // Ears
+    ctx.fillStyle = "#1a1714";
+    ctx.beginPath();
+    ctx.moveTo(s * 0.08, -s * 0.42);
+    ctx.lineTo(s * 0.16, -s * 0.62);
+    ctx.lineTo(s * 0.24, -s * 0.42);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.36, -s * 0.42);
+    ctx.lineTo(s * 0.44, -s * 0.62);
+    ctx.lineTo(s * 0.52, -s * 0.42);
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner ear (sakura pink)
+    ctx.fillStyle = "#ffb7c5";
+    ctx.beginPath();
+    ctx.moveTo(s * 0.13, -s * 0.45);
+    ctx.lineTo(s * 0.17, -s * 0.55);
+    ctx.lineTo(s * 0.21, -s * 0.45);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.41, -s * 0.45);
+    ctx.lineTo(s * 0.45, -s * 0.55);
+    ctx.lineTo(s * 0.49, -s * 0.45);
+    ctx.closePath();
+    ctx.fill();
+
+    // Eyes (glowing matcha)
+    const blink = (Math.sin(t * 0.005) > 0.98) ? 0.2 : 1;
+    ctx.fillStyle = "#c5e07a";
+    ctx.shadowColor = "#c5e07a";
+    ctx.shadowBlur = 6;
+    ctx.fillRect(s * 0.18, -s * 0.3, s * 0.07, s * 0.09 * blink);
+    ctx.fillRect(s * 0.36, -s * 0.3, s * 0.07, s * 0.09 * blink);
+    ctx.shadowBlur = 0;
+
+    // Eye pupil
+    ctx.fillStyle = "#14110f";
+    ctx.fillRect(s * 0.205, -s * 0.28, s * 0.025, s * 0.05 * blink);
+    ctx.fillRect(s * 0.385, -s * 0.28, s * 0.025, s * 0.05 * blink);
+
+    // Nose
+    ctx.fillStyle = "#ffb7c5";
+    ctx.fillRect(s * 0.29, -s * 0.16, s * 0.06, s * 0.04);
+
+    // Mouth
+    ctx.strokeStyle = "#3a2e28";
+    ctx.lineWidth = Math.max(1, s * 0.015);
+    ctx.beginPath();
+    ctx.moveTo(s * 0.32, -s * 0.1);
+    ctx.quadraticCurveTo(s * 0.28, -s * 0.06, s * 0.24, -s * 0.09);
+    ctx.moveTo(s * 0.32, -s * 0.1);
+    ctx.quadraticCurveTo(s * 0.36, -s * 0.06, s * 0.4, -s * 0.09);
+    ctx.stroke();
+
+    // Legs (animated)
+    const legPhase = Math.sin(t * 0.025);
+    ctx.fillStyle = "#1a1714";
+    ctx.fillRect(-s * 0.35, s * 0.3, s * 0.12, s * 0.18 + legPhase * s * 0.03);
+    ctx.fillRect(-s * 0.1, s * 0.3, s * 0.12, s * 0.18 - legPhase * s * 0.03);
+    ctx.fillRect(s * 0.15, s * 0.3, s * 0.12, s * 0.18 + legPhase * s * 0.03);
+    ctx.fillRect(s * 0.35, s * 0.3, s * 0.12, s * 0.18 - legPhase * s * 0.03);
+
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // ----- Game state -----
+  const state = {
+    running: false,
+    score: 0,
+    lives: 3,
+    cats: [],
+    startTime: 0,
+    lastTime: 0,
+    speedMul: 1,
+    nextSpeedUp: 10000,
+    nextSpawn: 0,
+    spawnInterval: 900,
+    duration: 60000,
+    playerName: ""
+  };
+
+  function spawnCat() {
+    // Random side: 0=left, 1=right, 2=top, 3=bottom
+    const side = Math.floor(Math.random() * 4);
+    const size = 56 + Math.random() * 32;
+    let x, y, vx, vy;
+    const baseSpeed = (0.10 + Math.random() * 0.07) * state.speedMul;
+
+    if (side === 0) { // from left, going right
+      x = -size; y = 100 + Math.random() * (H - 220);
+      vx = baseSpeed * (0.7 + Math.random() * 0.4);
+      vy = (Math.random() - 0.5) * 0.04;
+    } else if (side === 1) { // from right
+      x = W + size; y = 100 + Math.random() * (H - 220);
+      vx = -baseSpeed * (0.7 + Math.random() * 0.4);
+      vy = (Math.random() - 0.5) * 0.04;
+    } else if (side === 2) { // from top
+      x = Math.random() * W; y = -size;
+      vx = (Math.random() - 0.5) * 0.06;
+      vy = baseSpeed * 0.9;
+    } else { // from bottom
+      x = Math.random() * W; y = H + size;
+      vx = (Math.random() - 0.5) * 0.06;
+      vy = -baseSpeed * 0.9;
+    }
+
+    state.cats.push({
+      x, y, vx, vy, size,
+      dir: vx >= 0 ? 1 : -1,
+      hop: Math.random() * Math.PI * 2,
+      hopSpeed: 0.012 + Math.random() * 0.008,
+      caught: false,
+      catchAnim: 0,
+      spawnAt: performance.now()
+    });
+  }
+
+  function updateHUD() {
+    $("scoreValue").textContent = state.score;
+    const livesEls = document.querySelectorAll("#livesBox .life");
+    livesEls.forEach((el, i) => {
+      if (i < state.lives) el.classList.remove("lost");
+      else el.classList.add("lost");
+    });
+  }
+
+  function setTimer(remaining) {
+    const pct = Math.max(0, Math.min(1, remaining / state.duration));
+    const fill = $("timerFill");
+    fill.style.width = (pct * 100) + "%";
+    if (pct < 0.2) fill.classList.add("warning");
+    else fill.classList.remove("warning");
+  }
+
+  function showSpeedUp() {
+    const pill = $("speedPill");
+    pill.classList.remove("show");
+    void pill.offsetWidth; // restart animation
+    pill.classList.add("show");
+    setTimeout(() => pill.classList.remove("show"), 1400);
+  }
+
+  function popText(x, y, text) {
+    const el = document.createElement("div");
+    el.className = "pop";
+    el.textContent = text;
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    screens.game.appendChild(el);
+    setTimeout(() => el.remove(), 700);
+  }
+
+  function triggerShake() {
+    const app = $("app");
+    app.classList.remove("shake");
+    void app.offsetWidth;
+    app.classList.add("shake");
+    const flash = $("missFlash");
+    flash.classList.remove("flash");
+    void flash.offsetWidth;
+    flash.classList.add("flash");
+  }
+
+  function handleTap(clientX, clientY) {
+    if (!state.running) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    // Hit-test newest cats first (top of stack)
+    for (let i = state.cats.length - 1; i >= 0; i--) {
+      const c = state.cats[i];
+      if (c.caught) continue;
+      const dx = px - c.x;
+      const dy = py - c.y;
+      const r = c.size * 0.55;
+      if (dx * dx + dy * dy <= r * r) {
+        c.caught = true;
+        c.catchAnim = 1;
+        const points = Math.round(10 * state.speedMul);
+        state.score += points;
+        updateHUD();
+        popText(c.x, c.y, "+" + points);
+        playCatch();
+        return;
+      }
+    }
+  }
+
+  canvas.addEventListener("pointerdown", (e) => {
+    ensureAudio();
+    handleTap(e.clientX, e.clientY);
+  });
+
+  function gameLoop(now) {
+    if (!state.running) return;
+    const dt = Math.min(50, now - state.lastTime);
+    state.lastTime = now;
+    const elapsed = now - state.startTime;
+    const remaining = state.duration - elapsed;
+
+    // Speed up every 10s
+    if (elapsed >= state.nextSpeedUp) {
+      state.speedMul += 0.25;
+      state.spawnInterval = Math.max(380, state.spawnInterval - 90);
+      state.nextSpeedUp += 10000;
+      showSpeedUp();
+    }
+
+    // Spawn
+    if (now >= state.nextSpawn) {
+      spawnCat();
+      state.nextSpawn = now + state.spawnInterval * (0.7 + Math.random() * 0.6);
+    }
+
+    setTimer(remaining);
+
+    // Update
+    ctx.clearRect(0, 0, W, H);
+
+    for (let i = state.cats.length - 1; i >= 0; i--) {
+      const c = state.cats[i];
+      if (c.caught) {
+        c.catchAnim -= dt * 0.005;
+        if (c.catchAnim <= 0) { state.cats.splice(i, 1); continue; }
+        // pop animation
+        const scale = 1 + (1 - c.catchAnim) * 0.6;
+        ctx.save();
+        ctx.globalAlpha = c.catchAnim;
+        drawCat(c.x, c.y - (1 - c.catchAnim) * 30, c.size * scale, c.dir, now);
+        ctx.restore();
+        continue;
+      }
+
+      // Hop motion (jump arc)
+      c.hop += c.hopSpeed * dt;
+      const hopY = Math.abs(Math.sin(c.hop)) * c.size * 0.25;
+
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+
+      const drawY = c.y - hopY;
+      drawCat(c.x, drawY, c.size, c.dir, now);
+
+      // Off-screen check (missed)
+      const off = c.size;
+      if (c.x < -off || c.x > W + off || c.y < -off || c.y > H + off) {
+        // Only count miss if it had a chance to be caught (been on-screen)
+        if (now - c.spawnAt > 200) {
+          state.lives -= 1;
+          updateHUD();
+          triggerShake();
+          playMiss();
+        }
+        state.cats.splice(i, 1);
+        if (state.lives <= 0) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    if (remaining <= 0) {
+      endGame();
+      return;
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  function startGame() {
+    showScreen("game");
+    resizeCanvas();
+    state.running = true;
+    state.score = 0;
+    state.lives = 3;
+    state.cats = [];
+    state.speedMul = 1;
+    state.spawnInterval = 900;
+    state.nextSpeedUp = 10000;
+    state.startTime = performance.now();
+    state.lastTime = state.startTime;
+    state.nextSpawn = state.startTime + 400;
+    updateHUD();
+    setTimer(state.duration);
+    requestAnimationFrame(gameLoop);
+  }
+
+  function endGame() {
+    state.running = false;
+    $("finalScore").textContent = state.score;
+    $("submitStatus").textContent = "";
+    $("submitStatus").classList.remove("error");
+    $("btnSubmit").disabled = false;
+    $("btnSubmit").textContent = "📤 Submit Score";
+    showScreen("over");
+  }
+
+  // ----- Start screen handlers -----
+  $("btnPlay").addEventListener("click", () => {
+    const input = $("playerName");
+    const name = (input.value || "").trim();
+    const err = $("nameError");
+    if (name.length < 1) {
+      err.textContent = "Please enter your first name!";
+      input.focus();
+      return;
+    }
+    if (name.length > 14) {
+      err.textContent = "Name must be 14 characters or less.";
+      return;
+    }
+    err.textContent = "";
+    state.playerName = name;
+    ensureAudio();
+    startGame();
+  });
+
+  $("playerName").addEventListener("input", () => {
+    $("nameError").textContent = "";
+  });
+  $("playerName").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") $("btnPlay").click();
+  });
+
+  $("btnLeaderboard").addEventListener("click", () => openLeaderboard());
+
+  // ----- Game over handlers -----
+  $("btnPlayAgain").addEventListener("click", () => {
+    ensureAudio();
+    startGame();
+  });
+  $("btnOverLb").addEventListener("click", () => openLeaderboard());
+
+  $("btnSubmit").addEventListener("click", async () => {
+    const btn = $("btnSubmit");
+    const status = $("submitStatus");
+    btn.disabled = true;
+    btn.textContent = "Submitting...";
+    status.classList.remove("error");
+    status.textContent = "";
+    try {
+      if (window.__nekoOffline) throw new Error("offline");
+      await window.__nekoSubmitScore(state.playerName, state.score);
+      status.textContent = "✓ Submitted! Good luck 🍀";
+      btn.textContent = "✓ Submitted";
+    } catch (err) {
+      console.warn(err);
+      status.classList.add("error");
+      status.textContent = "Couldn't submit (offline). Your score is safe locally.";
+      // Stash locally so the café can recover later if needed
+      try {
+        const key = "neko_offline_scores";
+        const prev = JSON.parse(localStorage.getItem(key) || "[]");
+        prev.push({ name: state.playerName, score: state.score, at: Date.now() });
+        localStorage.setItem(key, JSON.stringify(prev.slice(-50)));
+      } catch (_) {}
+      btn.disabled = false;
+      btn.textContent = "↻ Retry Submit";
+    }
+  });
+
+  // ----- Leaderboard -----
+  async function openLeaderboard() {
+    showScreen("lb");
+    const list = $("lbList");
+    list.innerHTML = '<div class="lb-loading">Loading...</div>';
+    try {
+      if (window.__nekoOffline) throw new Error("offline");
+      const rows = await window.__nekoFetchLeaderboard();
+      renderLeaderboard(rows);
+    } catch (err) {
+      list.innerHTML = '<div class="lb-empty">Leaderboard offline right now.<br/>Ask staff to check connectivity!</div>';
+    }
+  }
+
+  function renderLeaderboard(rows) {
+    const list = $("lbList");
+    if (!rows || rows.length === 0) {
+      list.innerHTML = '<div class="lb-empty">No scores yet this week.<br/>Be the first! 🐾</div>';
+      return;
+    }
+    const escape = (s) => String(s || "").replace(/[<>&"']/g, c => ({
+      "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+    list.innerHTML = rows.map((r, i) => {
+      const cls = i === 0 ? "top1" : i === 1 ? "top2" : i === 2 ? "top3" : "";
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+      return `
+        <div class="lb-row ${cls}">
+          <div class="lb-rank">${medal}</div>
+          <div class="lb-name">${escape(r.name)}</div>
+          <div class="lb-score">${escape(r.score)}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  $("btnLbBack").addEventListener("click", () => {
+    showScreen(state.score > 0 && !state.running ? "over" : "start");
+  });
+
+  // Init
+  resizeCanvas();
+})();
+</script>
+
+<!-- PWA: register service worker for offline play + instant repeat loads -->
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch((err) => {
+        console.warn("[NekoCatcher] Service worker registration failed:", err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
