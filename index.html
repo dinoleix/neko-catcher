@@ -651,6 +651,10 @@
     appId: "1:533748049252:web:57fb5ff6be4dd5f103c671"
   };
 
+  // Shared Firestore "scores" collection across all GreenNeko games.
+  // This tags/filters rows so Neko Catcher only shows its own leaderboard.
+  const GAME_ID = "neko-catcher";
+
   let firestoreReady = false;
   let db = null;
   let firestoreApi = null;
@@ -683,6 +687,7 @@
     if (!firestoreReady) throw new Error("offline");
     const { collection, addDoc, serverTimestamp } = firestoreApi;
     await addDoc(collection(db, "scores"), {
+      game: GAME_ID,
       name: name.slice(0, 14),
       score: Math.max(0, Math.floor(score)),
       createdAt: serverTimestamp(),
@@ -696,6 +701,7 @@
     const weekKey = getWeekKey();
     const q = query(
       collection(db, "scores"),
+      where("game", "==", GAME_ID),
       where("week", "==", weekKey),
       orderBy("score", "desc"),
       limit(10)
