@@ -1,5 +1,5 @@
 // Neko Catcher — service worker (offline app shell + fast repeat loads)
-const CACHE = "neko-catcher-v7";
+const CACHE = "neko-catcher-v8";
 const ASSETS = [
   "./",
   "./index.html",
