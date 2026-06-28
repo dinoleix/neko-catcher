@@ -633,7 +633,7 @@
         spellcheck="false"
         placeholder="@yourhandle"
       />
-      <div class="field-hint">So we can tag the weekly winner &amp; hand over your free prize 🏆</div>
+      <div class="field-hint">So we can tag the weekly winner &amp; hand over your free prize 🏆<br/>Your Instagram ID is shown on the public leaderboard.</div>
       <div id="nameError" class="input-error"></div>
       <button id="btnPlay" class="btn btn-primary">▶ PLAY</button>
       <button id="btnLeaderboard" class="btn btn-ghost">🏆 Leaderboard</button>
@@ -1395,18 +1395,29 @@
     showScreen("over");
   }
 
+  // ----- Instagram handle helpers -----
+  // Canonical form stored/compared: lowercase, no @, only IG-legal chars.
+  function normalizeHandle(raw) {
+    return String(raw || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^@+/, "")
+      .replace(/[^a-z0-9._]/g, "")
+      .slice(0, 30);
+  }
+  // Display form (always shown with a leading @).
+  function displayHandle(name) {
+    return "@" + String(name || "").replace(/^@+/, "");
+  }
+
   // ----- Start screen handlers -----
   $("btnPlay").addEventListener("click", () => {
     const input = $("playerName");
-    const name = (input.value || "").trim();
+    const name = normalizeHandle(input.value);
     const err = $("nameError");
     if (name.length < 1) {
-      err.textContent = "Please enter your Instagram ID!";
+      err.textContent = "Please enter a valid Instagram ID!";
       input.focus();
-      return;
-    }
-    if (name.length > 30) {
-      err.textContent = "Instagram ID must be 30 characters or less.";
       return;
     }
     err.textContent = "";
@@ -1705,7 +1716,7 @@
       return `
         <div class="lb-row ${cls}">
           <div class="lb-rank">${medal}</div>
-          <div class="lb-name">${escape(r.name)}</div>
+          <div class="lb-name">${escape(displayHandle(r.name))}</div>
           <div class="lb-score">${escape(r.score)}</div>
         </div>
       `;
