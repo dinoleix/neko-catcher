@@ -643,6 +643,7 @@
       <div class="final-label">Cats Caught</div>
 
       <button id="btnSubmit" class="btn btn-primary">📤 Submit Score</button>
+      <button id="btnShare" class="btn btn-ghost">📸 Share my score</button>
       <button id="btnPlayAgain" class="btn btn-ghost">↻ Play Again</button>
       <button id="btnOverLb" class="btn btn-ghost">🏆 Leaderboard</button>
       <div id="submitStatus" class="submit-status"></div>
@@ -670,6 +671,7 @@
   </section>
 
   <div id="offlineToast" class="offline-toast">Offline mode · scores won't sync</div>
+  <div id="shareToast" class="offline-toast">Image saved — share it manually! 📷</div>
 </div>
 
 <!-- Firebase (loaded as ES modules from CDN) -->
@@ -932,123 +934,139 @@
   // ----- Cat drawing (pixel-art style) -----
   // Cats are drawn from primitive shapes for crisp scaling.
   // Black cat with matcha-green glowing eyes.
-  function drawCat(x, y, size, dir, t) {
-    ctx.save();
-    ctx.translate(x, y);
-    if (dir < 0) ctx.scale(-1, 1);
+  // Draws the signature black cat. `c` defaults to the game canvas context
+  // but can be any 2D context (used by the share card). `mood` is optional:
+  // "happy" / "sad" override the default playful mouth.
+  function drawCat(x, y, size, dir, t, c, mood) {
+    c = c || ctx;
+    c.save();
+    c.translate(x, y);
+    if (dir < 0) c.scale(-1, 1);
 
     const s = size;
     // Shadow
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
-    ctx.beginPath();
-    ctx.ellipse(0, s * 0.55, s * 0.5, s * 0.08, 0, 0, Math.PI * 2);
-    ctx.fill();
+    c.fillStyle = "rgba(0,0,0,0.3)";
+    c.beginPath();
+    c.ellipse(0, s * 0.55, s * 0.5, s * 0.08, 0, 0, Math.PI * 2);
+    c.fill();
 
     // Body bob
     const bob = Math.sin(t * 0.015) * s * 0.04;
-    ctx.translate(0, bob);
+    c.translate(0, bob);
 
     // Tail (waggle)
     const tailA = Math.sin(t * 0.02) * 0.6;
-    ctx.save();
-    ctx.translate(-s * 0.4, -s * 0.05);
-    ctx.rotate(-0.5 + tailA);
-    ctx.fillStyle = "#1a1714";
-    ctx.fillRect(-s * 0.05, -s * 0.45, s * 0.1, s * 0.5);
+    c.save();
+    c.translate(-s * 0.4, -s * 0.05);
+    c.rotate(-0.5 + tailA);
+    c.fillStyle = "#1a1714";
+    c.fillRect(-s * 0.05, -s * 0.45, s * 0.1, s * 0.5);
     // Tail tip
-    ctx.fillStyle = "#0d0a08";
-    ctx.fillRect(-s * 0.07, -s * 0.5, s * 0.14, s * 0.1);
-    ctx.restore();
+    c.fillStyle = "#0d0a08";
+    c.fillRect(-s * 0.07, -s * 0.5, s * 0.14, s * 0.1);
+    c.restore();
 
     // Body
-    ctx.fillStyle = "#1a1714";
-    roundRect(-s * 0.45, -s * 0.2, s * 0.9, s * 0.55, s * 0.18);
+    c.fillStyle = "#1a1714";
+    roundRect(-s * 0.45, -s * 0.2, s * 0.9, s * 0.55, s * 0.18, c);
     // Body highlight
-    ctx.fillStyle = "rgba(168,198,108,0.06)";
-    roundRect(-s * 0.4, -s * 0.18, s * 0.8, s * 0.15, s * 0.12);
+    c.fillStyle = "rgba(168,198,108,0.06)";
+    roundRect(-s * 0.4, -s * 0.18, s * 0.8, s * 0.15, s * 0.12, c);
 
     // Head
-    ctx.fillStyle = "#1a1714";
-    roundRect(s * 0.05, -s * 0.45, s * 0.5, s * 0.42, s * 0.14);
+    c.fillStyle = "#1a1714";
+    roundRect(s * 0.05, -s * 0.45, s * 0.5, s * 0.42, s * 0.14, c);
 
     // Ears
-    ctx.fillStyle = "#1a1714";
-    ctx.beginPath();
-    ctx.moveTo(s * 0.08, -s * 0.42);
-    ctx.lineTo(s * 0.16, -s * 0.62);
-    ctx.lineTo(s * 0.24, -s * 0.42);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(s * 0.36, -s * 0.42);
-    ctx.lineTo(s * 0.44, -s * 0.62);
-    ctx.lineTo(s * 0.52, -s * 0.42);
-    ctx.closePath();
-    ctx.fill();
+    c.fillStyle = "#1a1714";
+    c.beginPath();
+    c.moveTo(s * 0.08, -s * 0.42);
+    c.lineTo(s * 0.16, -s * 0.62);
+    c.lineTo(s * 0.24, -s * 0.42);
+    c.closePath();
+    c.fill();
+    c.beginPath();
+    c.moveTo(s * 0.36, -s * 0.42);
+    c.lineTo(s * 0.44, -s * 0.62);
+    c.lineTo(s * 0.52, -s * 0.42);
+    c.closePath();
+    c.fill();
 
     // Inner ear (sakura pink)
-    ctx.fillStyle = "#ffb7c5";
-    ctx.beginPath();
-    ctx.moveTo(s * 0.13, -s * 0.45);
-    ctx.lineTo(s * 0.17, -s * 0.55);
-    ctx.lineTo(s * 0.21, -s * 0.45);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(s * 0.41, -s * 0.45);
-    ctx.lineTo(s * 0.45, -s * 0.55);
-    ctx.lineTo(s * 0.49, -s * 0.45);
-    ctx.closePath();
-    ctx.fill();
+    c.fillStyle = "#ffb7c5";
+    c.beginPath();
+    c.moveTo(s * 0.13, -s * 0.45);
+    c.lineTo(s * 0.17, -s * 0.55);
+    c.lineTo(s * 0.21, -s * 0.45);
+    c.closePath();
+    c.fill();
+    c.beginPath();
+    c.moveTo(s * 0.41, -s * 0.45);
+    c.lineTo(s * 0.45, -s * 0.55);
+    c.lineTo(s * 0.49, -s * 0.45);
+    c.closePath();
+    c.fill();
 
     // Eyes (glowing matcha)
     const blink = (Math.sin(t * 0.005) > 0.98) ? 0.2 : 1;
-    ctx.fillStyle = "#c5e07a";
-    ctx.shadowColor = "#c5e07a";
-    ctx.shadowBlur = 6;
-    ctx.fillRect(s * 0.18, -s * 0.3, s * 0.07, s * 0.09 * blink);
-    ctx.fillRect(s * 0.36, -s * 0.3, s * 0.07, s * 0.09 * blink);
-    ctx.shadowBlur = 0;
+    c.fillStyle = "#c5e07a";
+    c.shadowColor = "#c5e07a";
+    c.shadowBlur = 6;
+    c.fillRect(s * 0.18, -s * 0.3, s * 0.07, s * 0.09 * blink);
+    c.fillRect(s * 0.36, -s * 0.3, s * 0.07, s * 0.09 * blink);
+    c.shadowBlur = 0;
 
     // Eye pupil
-    ctx.fillStyle = "#14110f";
-    ctx.fillRect(s * 0.205, -s * 0.28, s * 0.025, s * 0.05 * blink);
-    ctx.fillRect(s * 0.385, -s * 0.28, s * 0.025, s * 0.05 * blink);
+    c.fillStyle = "#14110f";
+    c.fillRect(s * 0.205, -s * 0.28, s * 0.025, s * 0.05 * blink);
+    c.fillRect(s * 0.385, -s * 0.28, s * 0.025, s * 0.05 * blink);
 
     // Nose
-    ctx.fillStyle = "#ffb7c5";
-    ctx.fillRect(s * 0.29, -s * 0.16, s * 0.06, s * 0.04);
+    c.fillStyle = "#ffb7c5";
+    c.fillRect(s * 0.29, -s * 0.16, s * 0.06, s * 0.04);
 
-    // Mouth
-    ctx.strokeStyle = "#3a2e28";
-    ctx.lineWidth = Math.max(1, s * 0.015);
-    ctx.beginPath();
-    ctx.moveTo(s * 0.32, -s * 0.1);
-    ctx.quadraticCurveTo(s * 0.28, -s * 0.06, s * 0.24, -s * 0.09);
-    ctx.moveTo(s * 0.32, -s * 0.1);
-    ctx.quadraticCurveTo(s * 0.36, -s * 0.06, s * 0.4, -s * 0.09);
-    ctx.stroke();
+    // Mouth (mood-aware)
+    c.strokeStyle = "#3a2e28";
+    c.lineWidth = Math.max(1, s * 0.02);
+    c.beginPath();
+    if (mood === "happy") {
+      // big smile
+      c.moveTo(s * 0.20, -s * 0.11);
+      c.quadraticCurveTo(s * 0.32, s * 0.04, s * 0.44, -s * 0.11);
+    } else if (mood === "sad") {
+      // frown
+      c.moveTo(s * 0.22, -s * 0.04);
+      c.quadraticCurveTo(s * 0.32, -s * 0.15, s * 0.42, -s * 0.04);
+    } else {
+      // default playful "w"
+      c.moveTo(s * 0.32, -s * 0.1);
+      c.quadraticCurveTo(s * 0.28, -s * 0.06, s * 0.24, -s * 0.09);
+      c.moveTo(s * 0.32, -s * 0.1);
+      c.quadraticCurveTo(s * 0.36, -s * 0.06, s * 0.4, -s * 0.09);
+    }
+    c.stroke();
 
     // Legs (animated)
     const legPhase = Math.sin(t * 0.025);
-    ctx.fillStyle = "#1a1714";
-    ctx.fillRect(-s * 0.35, s * 0.3, s * 0.12, s * 0.18 + legPhase * s * 0.03);
-    ctx.fillRect(-s * 0.1, s * 0.3, s * 0.12, s * 0.18 - legPhase * s * 0.03);
-    ctx.fillRect(s * 0.15, s * 0.3, s * 0.12, s * 0.18 + legPhase * s * 0.03);
-    ctx.fillRect(s * 0.35, s * 0.3, s * 0.12, s * 0.18 - legPhase * s * 0.03);
+    c.fillStyle = "#1a1714";
+    c.fillRect(-s * 0.35, s * 0.3, s * 0.12, s * 0.18 + legPhase * s * 0.03);
+    c.fillRect(-s * 0.1, s * 0.3, s * 0.12, s * 0.18 - legPhase * s * 0.03);
+    c.fillRect(s * 0.15, s * 0.3, s * 0.12, s * 0.18 + legPhase * s * 0.03);
+    c.fillRect(s * 0.35, s * 0.3, s * 0.12, s * 0.18 - legPhase * s * 0.03);
 
-    ctx.restore();
+    c.restore();
   }
 
-  function roundRect(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-    ctx.fill();
+  function roundRect(x, y, w, h, r, c) {
+    c = c || ctx;
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+    c.fill();
   }
 
   // ----- Game state -----
@@ -1346,6 +1364,123 @@
       btn.textContent = "↻ Retry Submit";
     }
   });
+
+  // ----- Share my score -----
+  const SHARE_URL = "neko-catcher.vercel.app";
+  const HAPPY_THRESHOLD = 15; // happy cat at/above this many cats
+
+  function showShareToast(msg) {
+    const t = $("shareToast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3500);
+  }
+
+  // Synchronous dataURL -> Blob so we can build the File without an async
+  // gap, preserving the click's user-activation for navigator.share() on iOS.
+  function dataURLtoBlob(dataURL) {
+    const [head, b64] = dataURL.split(",");
+    const mime = (head.match(/:(.*?);/) || [, "image/png"])[1];
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  // Builds a 1080x1920 Instagram-Stories share card and returns the canvas.
+  function buildShareCard(score) {
+    const W = 1080, H = 1920;
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const c = cv.getContext("2d");
+
+    // Background gradient (matches the app's --deep/dark-green palette)
+    const grad = c.createRadialGradient(W / 2, H * 0.33, 120, W / 2, H * 0.4, H * 0.85);
+    grad.addColorStop(0, "#14543f");
+    grad.addColorStop(0.55, "#0d3b2e");
+    grad.addColorStop(1, "#061d16");
+    c.fillStyle = grad;
+    c.fillRect(0, 0, W, H);
+
+    // Faint kanji watermark
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillStyle = "rgba(168,198,108,0.06)";
+    c.font = "900 720px -apple-system, BlinkMacSystemFont, sans-serif";
+    c.fillText("猫", W * 0.5, H * 0.45);
+
+    // Border frame
+    c.strokeStyle = "rgba(168,198,108,0.35)";
+    c.lineWidth = 8;
+    c.strokeRect(40, 40, W - 80, H - 80);
+
+    const center = (txt, y, font, color, glow) => {
+      c.font = font; c.fillStyle = color;
+      c.textAlign = "center"; c.textBaseline = "alphabetic";
+      c.shadowColor = glow || "transparent";
+      c.shadowBlur = glow ? 40 : 0;
+      c.fillText(txt, W / 2, y);
+      c.shadowBlur = 0;
+    };
+
+    // Title
+    center("NEKO CATCHER", 250, "900 88px -apple-system, sans-serif", "#c5e07a", "rgba(168,198,108,0.5)");
+    center("猫 キャッチャー", 322, "600 38px -apple-system, sans-serif", "#a8c66c");
+
+    // Hero cat (happy/sad by score); static pose via t=0
+    const mood = score >= HAPPY_THRESHOLD ? "happy" : "sad";
+    drawCat(W / 2, 720, 300, 1, 0, c, mood);
+
+    // Big score + label
+    center(String(score), 1240, "900 360px -apple-system, sans-serif", "#ffffff", "rgba(168,198,108,0.5)");
+    center("CATS CAUGHT", 1330, "800 52px -apple-system, sans-serif", "#a8c66c");
+
+    // Caption
+    center("I caught " + score + " cats! 🐱", 1500, "700 56px -apple-system, sans-serif", "#f5f1e3");
+    center("GreenNeko Café 🍵", 1572, "600 42px -apple-system, sans-serif", "#ffb7c5");
+
+    // Footer URL
+    center("▶ Play at " + SHARE_URL, 1812, "700 44px -apple-system, sans-serif", "#c5e07a");
+
+    return cv;
+  }
+
+  async function shareScore() {
+    let blob, file;
+    try {
+      const cv = buildShareCard(state.score);
+      blob = dataURLtoBlob(cv.toDataURL("image/png"));
+      file = new File([blob], "neko-catcher-score.png", { type: "image/png" });
+    } catch (err) {
+      console.warn("[NekoCatcher] Couldn't build share image:", err);
+      showShareToast("Couldn't make the image, sorry! 😿");
+      return;
+    }
+
+    const text = "I caught " + state.score + " cats at Neko Catcher 🐱 Play at " + SHARE_URL;
+
+    // Native share sheet (mobile) — share the image file.
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text });
+      } catch (err) {
+        // AbortError = user cancelled; that's expected, stay silent.
+      }
+      return;
+    }
+
+    // Fallback (most desktops): download the PNG to share manually.
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "neko-catcher-score.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showShareToast("Image saved — share it manually! 📷");
+  }
+
+  $("btnShare").addEventListener("click", shareScore);
 
   // ----- Leaderboard -----
   let lbMode = "week"; // "week" | "all"
