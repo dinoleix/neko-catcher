@@ -526,6 +526,37 @@
     padding: 0 4px;
   }
 
+  .lb-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 4px;
+    margin: 0 4px 12px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(168,198,108,0.18);
+    border-radius: 999px;
+  }
+  .lb-tab {
+    flex: 1;
+    padding: 10px 8px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--cream);
+    opacity: 0.65;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, opacity 0.2s;
+  }
+  .lb-tab.active {
+    background: linear-gradient(135deg, var(--matcha) 0%, var(--matcha-bright) 100%);
+    color: var(--black);
+    opacity: 1;
+  }
+  .lb-tab:not(.active):active { background: rgba(168,198,108,0.12); }
+
   .offline-toast {
     position: absolute;
     bottom: 20px;
@@ -622,8 +653,12 @@
   <section id="screen-lb" class="screen">
     <div class="lb-wrap">
       <div class="lb-header">
-        <h2 class="lb-title">🏆 This Week's Top Catchers</h2>
-        <div class="lb-sub">Resets every Monday · Top 10</div>
+        <h2 id="lbTitle" class="lb-title">🏆 Top Catchers</h2>
+        <div id="lbSub" class="lb-sub">Resets every Monday · Top 10</div>
+      </div>
+      <div class="lb-tabs">
+        <button id="tabWeek" class="lb-tab active">This Week</button>
+        <button id="tabAll" class="lb-tab">All-Time</button>
       </div>
       <div id="lbList" class="lb-list">
         <div class="lb-loading">Loading...</div>
@@ -705,6 +740,19 @@
       where("week", "==", weekKey),
       orderBy("score", "desc"),
       limit(10)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data());
+  };
+
+  window.__nekoFetchAllTime = async function() {
+    if (!firestoreReady) throw new Error("offline");
+    const { collection, query, where, orderBy, limit, getDocs } = firestoreApi;
+    const q = query(
+      collection(db, "scores"),
+      where("game", "==", GAME_ID),
+      orderBy("score", "desc"),
+      limit(50)
     );
     const snap = await getDocs(q);
     return snap.docs.map(d => d.data());
@@ -1300,23 +1348,54 @@
   });
 
   // ----- Leaderboard -----
-  async function openLeaderboard() {
+  let lbMode = "week"; // "week" | "all"
+
+  function updateLbTabs() {
+    const week = lbMode === "week";
+    $("tabWeek").classList.toggle("active", week);
+    $("tabAll").classList.toggle("active", !week);
+    $("lbTitle").textContent = week ? "🏆 This Week's Top Catchers" : "🏆 All-Time Top Catchers";
+    $("lbSub").textContent = week ? "Resets every Monday · Top 10" : "Best scores ever · Top 10";
+  }
+
+  // Keep only each player's best score, highest first.
+  function dedupeByName(rows) {
+    const best = new Map();
+    for (const r of rows) {
+      const key = String(r.name || "").trim().toLowerCase();
+      if (!best.has(key) || (r.score || 0) > (best.get(key).score || 0)) best.set(key, r);
+    }
+    return [...best.values()].sort((a, b) => (b.score || 0) - (a.score || 0));
+  }
+
+  async function openLeaderboard(mode) {
+    lbMode = mode || "week";
     showScreen("lb");
+    updateLbTabs();
     const list = $("lbList");
     list.innerHTML = '<div class="lb-loading">Loading...</div>';
     try {
       if (window.__nekoOffline) throw new Error("offline");
-      const rows = await window.__nekoFetchLeaderboard();
+      let rows;
+      if (lbMode === "all") {
+        rows = dedupeByName(await window.__nekoFetchAllTime()).slice(0, 10);
+      } else {
+        rows = await window.__nekoFetchLeaderboard();
+      }
       renderLeaderboard(rows);
     } catch (err) {
       list.innerHTML = '<div class="lb-empty">Leaderboard offline right now.<br/>Ask staff to check connectivity!</div>';
     }
   }
 
+  $("tabWeek").addEventListener("click", () => { if (lbMode !== "week") openLeaderboard("week"); });
+  $("tabAll").addEventListener("click", () => { if (lbMode !== "all") openLeaderboard("all"); });
+
   function renderLeaderboard(rows) {
     const list = $("lbList");
     if (!rows || rows.length === 0) {
-      list.innerHTML = '<div class="lb-empty">No scores yet this week.<br/>Be the first! 🐾</div>';
+      const msg = lbMode === "all" ? "No scores yet.<br/>Be the first! 🐾" : "No scores yet this week.<br/>Be the first! 🐾";
+      list.innerHTML = '<div class="lb-empty">' + msg + '</div>';
       return;
     }
     const escape = (s) => String(s || "").replace(/[<>&"']/g, c => ({
