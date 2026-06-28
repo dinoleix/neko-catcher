@@ -800,6 +800,26 @@
   const ctx = canvas.getContext("2d");
   let DPR = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
+  // Reachable-area insets: device safe areas (notch / rounded corners /
+  // home indicator) so cats never spawn somewhere a thumb can't reach.
+  let SAFE = { top: 0, right: 0, bottom: 0, left: 0 };
+
+  function readSafeInsets() {
+    const p = document.createElement("div");
+    p.style.cssText =
+      "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
+      "padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);" +
+      "padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);";
+    document.body.appendChild(p);
+    const cs = getComputedStyle(p);
+    SAFE = {
+      top: parseFloat(cs.paddingTop) || 0,
+      right: parseFloat(cs.paddingRight) || 0,
+      bottom: parseFloat(cs.paddingBottom) || 0,
+      left: parseFloat(cs.paddingLeft) || 0
+    };
+    p.remove();
+  }
 
   function resizeCanvas() {
     const rect = canvas.getBoundingClientRect();
@@ -809,8 +829,24 @@
     canvas.height = Math.floor(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.imageSmoothingEnabled = false;
+    readSafeInsets();
   }
   window.addEventListener("resize", resizeCanvas);
+
+  // The rectangle a cat of `size` must stay within to be comfortably
+  // tappable: inset by safe areas, the HUD/timer at the top, and a finger
+  // margin so even edge cats can be reached.
+  function playBounds(size) {
+    const touch = 16;          // extra finger room beyond the cat's body
+    const half = size * 0.5;
+    const hud = 104;           // score box + lives + timer track
+    return {
+      left:   SAFE.left + half + touch,
+      right:  W - SAFE.right - half - touch,
+      top:    SAFE.top + hud + half,
+      bottom: H - SAFE.bottom - half - touch
+    };
+  }
 
   // ----- Audio: funny procedural cat voices (no audio files) -----
   let audioCtx = null;
@@ -1092,21 +1128,28 @@
     let x, y, vx, vy;
     const baseSpeed = (0.10 + Math.random() * 0.07) * state.speedMul;
 
+    // Spawn only where the player can actually reach the cat, and keep the
+    // sideways drift tiny so a cat can only exit via the edge it heads toward
+    // (no surprise escapes off the left/right/top behind the bezel).
+    const b = playBounds(size);
+    const randX = () => b.left + Math.random() * Math.max(0, b.right - b.left);
+    const randY = () => b.top + Math.random() * Math.max(0, b.bottom - b.top);
+
     if (side === 0) { // from left, going right
-      x = -size; y = 100 + Math.random() * (H - 220);
+      x = -size; y = randY();
       vx = baseSpeed * (0.7 + Math.random() * 0.4);
-      vy = (Math.random() - 0.5) * 0.04;
+      vy = (Math.random() - 0.5) * 0.015;
     } else if (side === 1) { // from right
-      x = W + size; y = 100 + Math.random() * (H - 220);
+      x = W + size; y = randY();
       vx = -baseSpeed * (0.7 + Math.random() * 0.4);
-      vy = (Math.random() - 0.5) * 0.04;
+      vy = (Math.random() - 0.5) * 0.015;
     } else if (side === 2) { // from top
-      x = Math.random() * W; y = -size;
-      vx = (Math.random() - 0.5) * 0.06;
+      x = randX(); y = -size;
+      vx = (Math.random() - 0.5) * 0.015;
       vy = baseSpeed * 0.9;
     } else { // from bottom
-      x = Math.random() * W; y = H + size;
-      vx = (Math.random() - 0.5) * 0.06;
+      x = randX(); y = H + size;
+      vx = (Math.random() - 0.5) * 0.015;
       vy = -baseSpeed * 0.9;
     }
 
@@ -1178,7 +1221,9 @@
       if (c.caught) continue;
       const dx = px - c.x;
       const dy = py - c.y;
-      const r = c.size * 0.55;
+      // Forgiving hit area: the cat's body plus a fingertip's worth of slack
+      // so genuine attempts near a cat still count.
+      const r = c.size * 0.55 + 20;
       if (dx * dx + dy * dy <= r * r) {
         c.caught = true;
         c.catchAnim = 1;
