@@ -594,54 +594,6 @@
   }
   .offline-toast.show { display: block; }
 
-  /* ---------- CAT-MASK SELFIE COMPOSER ---------- */
-  .selfie-wrap {
-    width: 100%;
-    max-width: 360px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 2;
-  }
-  .selfie-title {
-    font-size: 24px;
-    font-weight: 900;
-    color: var(--matcha-bright);
-    margin: 0 0 4px;
-  }
-  .selfie-sub {
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--cream);
-    opacity: 0.7;
-    margin-bottom: 16px;
-    text-align: center;
-    line-height: 1.5;
-  }
-  .selfie-canvas {
-    width: min(78vw, 300px);
-    height: min(78vw, 300px);
-    touch-action: none;
-    border-radius: 18px;
-    background: rgba(0,0,0,0.25);
-    border: 1px solid rgba(168,198,108,0.25);
-  }
-  .selfie-hint {
-    font-size: 13px;
-    color: var(--cream);
-    opacity: 0.8;
-    margin: 10px 0 0;
-    min-height: 18px;
-    text-align: center;
-  }
-  .selfie-zoom {
-    width: min(78vw, 300px);
-    margin: 12px 0 6px;
-    accent-color: var(--matcha);
-  }
-  .selfie-zoom:disabled { opacity: 0.4; }
-
   @media (max-height: 600px) {
     .logo-mark { font-size: 56px; }
     .logo-title { font-size: 30px; }
@@ -712,7 +664,6 @@
 
       <button id="btnSubmit" class="btn btn-primary">📤 Submit Score</button>
       <button id="btnShare" class="btn btn-ghost">📸 Share my score</button>
-      <button id="btnCatSelfie" class="btn btn-ghost">🐱 Cat-mask selfie</button>
       <button id="btnPlayAgain" class="btn btn-ghost">↻ Play Again</button>
       <button id="btnOverLb" class="btn btn-ghost">🏆 Leaderboard</button>
       <div id="submitStatus" class="submit-status"></div>
@@ -737,21 +688,6 @@
       <div class="lb-actions">
         <button id="btnLbBack" class="btn btn-primary">← Back</button>
       </div>
-    </div>
-  </section>
-
-  <!-- CAT-MASK SELFIE COMPOSER -->
-  <section id="screen-selfie" class="screen">
-    <div class="selfie-wrap">
-      <h2 class="selfie-title">🐱 Cat-Mask Selfie</h2>
-      <div class="selfie-sub">Line your face under the ears · your photo stays on your phone</div>
-      <canvas id="selfieCanvas" class="selfie-canvas"></canvas>
-      <div id="selfieHint" class="selfie-hint">Tap "Choose photo" to start 📷</div>
-      <input id="selfieZoom" class="selfie-zoom" type="range" min="1" max="4" step="0.01" value="1" disabled />
-      <input id="selfieFile" type="file" accept="image/*" capture="user" hidden />
-      <button id="btnSelfiePick" class="btn btn-primary">📷 Choose / take photo</button>
-      <button id="btnSelfieShare" class="btn btn-ghost" disabled>📤 Share my cat selfie</button>
-      <button id="btnSelfieBack" class="btn btn-ghost">← Back</button>
     </div>
   </section>
 
@@ -889,8 +825,7 @@
     start: $("screen-start"),
     game: $("screen-game"),
     over: $("screen-over"),
-    lb: $("screen-lb"),
-    selfie: $("screen-selfie")
+    lb: $("screen-lb")
   };
 
   function showScreen(name) {
@@ -1206,85 +1141,6 @@
     c.arcTo(x, y, x + w, y, r);
     c.closePath();
     c.fill();
-  }
-
-  // ----- Cat-mask pieces (shared by the composer + share card) -----
-  // All sized relative to a face circle at (cx,cy) of radius r.
-  function drawCatEars(c, cx, cy, r) {
-    const ear = (sx) => {
-      // sx = -1 left, +1 right. Triangle ear straddling the top of the circle.
-      const baseOut = { x: cx + sx * r * 0.92, y: cy - r * 0.42 };
-      const baseIn = { x: cx + sx * r * 0.20, y: cy - r * 0.66 };
-      const tip = { x: cx + sx * r * 0.66, y: cy - r * 1.18 };
-      c.fillStyle = "#1a1714";
-      c.beginPath();
-      c.moveTo(baseOut.x, baseOut.y);
-      c.lineTo(tip.x, tip.y);
-      c.lineTo(baseIn.x, baseIn.y);
-      c.closePath();
-      c.fill();
-      // inner ear (sakura), a smaller triangle toward the tip
-      c.fillStyle = "#ffb7c5";
-      c.beginPath();
-      c.moveTo(cx + sx * r * 0.74, cy - r * 0.50);
-      c.lineTo(cx + sx * r * 0.62, cy - r * 0.98);
-      c.lineTo(cx + sx * r * 0.40, cy - r * 0.58);
-      c.closePath();
-      c.fill();
-    };
-    ear(-1);
-    ear(1);
-  }
-
-  function drawCatNoseWhiskers(c, cx, cy, r) {
-    // Whiskers (white with a soft dark edge so they read on any photo)
-    c.save();
-    c.strokeStyle = "rgba(255,255,255,0.92)";
-    c.lineWidth = Math.max(2, r * 0.022);
-    c.lineCap = "round";
-    c.shadowColor = "rgba(0,0,0,0.35)";
-    c.shadowBlur = Math.max(2, r * 0.03);
-    const ny = cy + r * 0.12;
-    for (const sx of [-1, 1]) {
-      const x0 = cx + sx * r * 0.16;
-      c.beginPath(); c.moveTo(x0, ny - r * 0.02); c.lineTo(cx + sx * r * 0.82, ny - r * 0.16); c.stroke();
-      c.beginPath(); c.moveTo(x0, ny + r * 0.04); c.lineTo(cx + sx * r * 0.86, ny + r * 0.04); c.stroke();
-      c.beginPath(); c.moveTo(x0, ny + r * 0.10); c.lineTo(cx + sx * r * 0.82, ny + r * 0.24); c.stroke();
-    }
-    c.restore();
-    // Nose (sakura triangle pointing down)
-    c.fillStyle = "#ff8fab";
-    c.beginPath();
-    c.moveTo(cx - r * 0.11, ny - r * 0.06);
-    c.lineTo(cx + r * 0.11, ny - r * 0.06);
-    c.lineTo(cx, ny + r * 0.10);
-    c.closePath();
-    c.fill();
-  }
-
-  // Draws a photo clipped into a face circle with cat ears + nose/whiskers.
-  // t = { img, panX, panY, scale } where pan is in units of r and scale>=1.
-  function drawCatSelfie(c, cx, cy, r, t) {
-    const img = t.img;
-    c.save();
-    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.closePath(); c.clip();
-    c.fillStyle = "#0d3b2e";
-    c.fillRect(cx - r, cy - r, r * 2, r * 2);
-    if (img) {
-      const cover = Math.max((2 * r) / img.width, (2 * r) / img.height);
-      const sc = cover * (t.scale || 1);
-      const w = img.width * sc, h = img.height * sc;
-      const ix = cx + (t.panX || 0) * r - w / 2;
-      const iy = cy + (t.panY || 0) * r - h / 2;
-      c.drawImage(img, ix, iy, w, h);
-    }
-    c.restore();
-    drawCatEars(c, cx, cy, r);
-    drawCatNoseWhiskers(c, cx, cy, r);
-    // Ring around the face
-    c.strokeStyle = "#c5e07a";
-    c.lineWidth = Math.max(3, r * 0.04);
-    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
   }
 
   // ----- Game state -----
@@ -1640,9 +1496,7 @@
   }
 
   // Builds a 1080x1920 Instagram-Stories share card and returns the canvas.
-  // If `selfie` (with an image) is given, the player's cat-masked face is the
-  // hero instead of the drawn cat.
-  function buildShareCard(score, selfie) {
+  function buildShareCard(score) {
     const W = 1080, H = 1920;
     const cv = document.createElement("canvas");
     cv.width = W; cv.height = H;
@@ -1680,13 +1534,9 @@
     center("NEKO CATCHER", 250, "900 88px -apple-system, sans-serif", "#c5e07a", "rgba(168,198,108,0.5)");
     center("猫 キャッチャー", 322, "600 38px -apple-system, sans-serif", "#a8c66c");
 
-    // Hero: cat-masked selfie if provided, else the drawn cat (happy/sad).
-    if (selfie && selfie.img) {
-      drawCatSelfie(c, W / 2, 720, 250, selfie);
-    } else {
-      const mood = score >= HAPPY_THRESHOLD ? "happy" : "sad";
-      drawCat(W / 2, 720, 300, 1, 0, c, mood);
-    }
+    // Hero cat (happy/sad by score); static pose via t=0
+    const mood = score >= HAPPY_THRESHOLD ? "happy" : "sad";
+    drawCat(W / 2, 720, 300, 1, 0, c, mood);
 
     // Big score + label
     center(String(score), 1240, "900 360px -apple-system, sans-serif", "#ffffff", "rgba(168,198,108,0.5)");
@@ -1702,10 +1552,10 @@
     return cv;
   }
 
-  async function shareScore(selfie) {
+  async function shareScore() {
     let blob, file;
     try {
-      const cv = buildShareCard(state.score, selfie);
+      const cv = buildShareCard(state.score);
       blob = dataURLtoBlob(cv.toDataURL("image/png"));
       file = new File([blob], "neko-catcher-score.png", { type: "image/png" });
     } catch (err) {
@@ -1739,155 +1589,6 @@
   }
 
   $("btnShare").addEventListener("click", () => shareScore());
-
-  // ----- Cat-mask selfie composer -----
-  const selfieState = { img: null, panX: 0, panY: 0, scale: 1 };
-
-  function selfieRadius() {
-    return ($("selfieCanvas").clientWidth || 300) * 0.30;
-  }
-
-  // Composer-only alignment guide: where to put your face/eyes under the ears.
-  function drawFaceGuide(c, cx, cy, r) {
-    c.save();
-    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.clip();
-    c.strokeStyle = "rgba(255,255,255,0.55)";
-    c.setLineDash([6, 6]);
-    c.lineWidth = 2;
-    // face oval
-    c.beginPath();
-    c.ellipse(cx, cy - r * 0.05, r * 0.55, r * 0.72, 0, 0, Math.PI * 2);
-    c.stroke();
-    // eye line
-    const eyeY = cy - r * 0.18;
-    c.beginPath(); c.moveTo(cx - r * 0.42, eyeY); c.lineTo(cx + r * 0.42, eyeY); c.stroke();
-    c.setLineDash([]);
-    // eye targets
-    c.fillStyle = "rgba(255,255,255,0.5)";
-    c.beginPath(); c.arc(cx - r * 0.22, eyeY, r * 0.05, 0, Math.PI * 2); c.fill();
-    c.beginPath(); c.arc(cx + r * 0.22, eyeY, r * 0.05, 0, Math.PI * 2); c.fill();
-    c.restore();
-  }
-
-  function renderSelfieComposer() {
-    const cv = $("selfieCanvas");
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const size = cv.clientWidth || 300;
-    cv.width = Math.floor(size * dpr);
-    cv.height = Math.floor(size * dpr);
-    const c = cv.getContext("2d");
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, size, size);
-    const cx = size / 2, cy = size * 0.56, r = size * 0.30;
-    if (selfieState.img) {
-      drawCatSelfie(c, cx, cy, r, selfieState);
-    } else {
-      // Empty guide: dashed circle + ears/nose so the player sees the target.
-      c.fillStyle = "rgba(0,0,0,0.25)";
-      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
-      drawCatEars(c, cx, cy, r);
-      drawCatNoseWhiskers(c, cx, cy, r);
-      c.setLineDash([8, 8]);
-      c.strokeStyle = "rgba(168,198,108,0.7)";
-      c.lineWidth = 3;
-      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
-      c.setLineDash([]);
-    }
-    // The face guide sits on top in both states (composer only — never baked
-    // into the shared card).
-    drawFaceGuide(c, cx, cy, r);
-  }
-
-  async function loadSelfie(file) {
-    if (!file) return;
-    let img;
-    try {
-      img = await createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch (e) {
-      img = await new Promise((res, rej) => {
-        const im = new Image();
-        im.onload = () => res(im);
-        im.onerror = rej;
-        im.src = URL.createObjectURL(file);
-      });
-    }
-    selfieState.img = img;
-    selfieState.panX = 0; selfieState.panY = 0; selfieState.scale = 1;
-    $("selfieZoom").value = "1";
-    $("selfieZoom").disabled = false;
-    $("btnSelfieShare").disabled = false;
-    $("selfieHint").textContent = "Line your eyes up with the dotted line · drag & pinch";
-    renderSelfieComposer();
-  }
-
-  function openSelfie() {
-    showScreen("selfie");
-    $("selfieZoom").disabled = !selfieState.img;
-    $("btnSelfieShare").disabled = !selfieState.img;
-    $("selfieHint").textContent = selfieState.img
-      ? "Line your eyes up with the dotted line · drag & pinch"
-      : 'Tap "Choose photo" to start 📷';
-    requestAnimationFrame(renderSelfieComposer);
-  }
-
-  // Pointer drag (1 finger) + pinch zoom (2 fingers).
-  const sPointers = new Map();
-  let sPinchDist = 0;
-  function selfiePos(e) {
-    const rect = $("selfieCanvas").getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  }
-  $("selfieCanvas").addEventListener("pointerdown", (e) => {
-    if (!selfieState.img) return;
-    $("selfieCanvas").setPointerCapture(e.pointerId);
-    sPointers.set(e.pointerId, selfiePos(e));
-    sPinchDist = 0;
-  });
-  $("selfieCanvas").addEventListener("pointermove", (e) => {
-    if (!selfieState.img || !sPointers.has(e.pointerId)) return;
-    const prev = sPointers.get(e.pointerId);
-    const cur = selfiePos(e);
-    sPointers.set(e.pointerId, cur);
-    const r = selfieRadius();
-    if (sPointers.size >= 2) {
-      const pts = [...sPointers.values()];
-      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      if (sPinchDist > 0 && dist > 0) {
-        selfieState.scale = Math.min(4, Math.max(1, selfieState.scale * (dist / sPinchDist)));
-        $("selfieZoom").value = String(selfieState.scale);
-      }
-      sPinchDist = dist;
-    } else {
-      selfieState.panX += (cur.x - prev.x) / r;
-      selfieState.panY += (cur.y - prev.y) / r;
-      const L = 1.6;
-      selfieState.panX = Math.max(-L, Math.min(L, selfieState.panX));
-      selfieState.panY = Math.max(-L, Math.min(L, selfieState.panY));
-    }
-    renderSelfieComposer();
-  });
-  const endSelfiePointer = (e) => { sPointers.delete(e.pointerId); sPinchDist = 0; };
-  $("selfieCanvas").addEventListener("pointerup", endSelfiePointer);
-  $("selfieCanvas").addEventListener("pointercancel", endSelfiePointer);
-
-  $("selfieZoom").addEventListener("input", (e) => {
-    if (!selfieState.img) return;
-    selfieState.scale = parseFloat(e.target.value);
-    renderSelfieComposer();
-  });
-  $("selfieFile").addEventListener("change", (e) => {
-    loadSelfie(e.target.files && e.target.files[0]);
-    e.target.value = ""; // allow re-picking the same file
-  });
-  $("btnSelfiePick").addEventListener("click", () => $("selfieFile").click());
-  $("btnCatSelfie").addEventListener("click", openSelfie);
-  $("btnSelfieShare").addEventListener("click", () => {
-    if (selfieState.img) shareScore(selfieState);
-  });
-  $("btnSelfieBack").addEventListener("click", () => showScreen("over"));
-  window.addEventListener("resize", () => {
-    if (screens.selfie.classList.contains("active")) renderSelfieComposer();
-  });
 
   // ----- Leaderboard -----
   let lbMode = "week"; // "week" | "all"
