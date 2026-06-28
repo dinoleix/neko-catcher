@@ -224,6 +224,13 @@
     margin-top: 8px;
     min-height: 16px;
   }
+  .field-hint {
+    font-size: 12px;
+    color: var(--cream);
+    opacity: 0.65;
+    margin-top: 8px;
+    line-height: 1.4;
+  }
 
   /* ---------- GAME SCREEN ---------- */
   .hud {
@@ -614,16 +621,19 @@
     </div>
 
     <div class="form-card">
-      <label class="field-label" for="playerName">Enter your name</label>
+      <label class="field-label" for="playerName">Enter your Instagram ID</label>
       <input
         id="playerName"
         class="name-input"
         type="text"
-        maxlength="14"
+        maxlength="30"
         autocomplete="off"
-        autocapitalize="words"
-        placeholder="First name..."
+        autocapitalize="none"
+        autocorrect="off"
+        spellcheck="false"
+        placeholder="@yourhandle"
       />
+      <div class="field-hint">So we can tag the weekly winner &amp; hand over your free prize 🏆</div>
       <div id="nameError" class="input-error"></div>
       <button id="btnPlay" class="btn btn-primary">▶ PLAY</button>
       <button id="btnLeaderboard" class="btn btn-ghost">🏆 Leaderboard</button>
@@ -746,7 +756,7 @@
     const { collection, addDoc, serverTimestamp } = firestoreApi;
     await addDoc(collection(db, "scores"), {
       game: GAME_ID,
-      name: name.slice(0, 14),
+      name: name.slice(0, 30),
       score: Math.max(0, Math.floor(score)),
       createdAt: serverTimestamp(),
       week: getWeekKey()
@@ -1391,12 +1401,12 @@
     const name = (input.value || "").trim();
     const err = $("nameError");
     if (name.length < 1) {
-      err.textContent = "Please enter your first name!";
+      err.textContent = "Please enter your Instagram ID!";
       input.focus();
       return;
     }
-    if (name.length > 14) {
-      err.textContent = "Name must be 14 characters or less.";
+    if (name.length > 30) {
+      err.textContent = "Instagram ID must be 30 characters or less.";
       return;
     }
     err.textContent = "";
