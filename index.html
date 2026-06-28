@@ -1747,6 +1747,28 @@
     return ($("selfieCanvas").clientWidth || 300) * 0.30;
   }
 
+  // Composer-only alignment guide: where to put your face/eyes under the ears.
+  function drawFaceGuide(c, cx, cy, r) {
+    c.save();
+    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.clip();
+    c.strokeStyle = "rgba(255,255,255,0.55)";
+    c.setLineDash([6, 6]);
+    c.lineWidth = 2;
+    // face oval
+    c.beginPath();
+    c.ellipse(cx, cy - r * 0.05, r * 0.55, r * 0.72, 0, 0, Math.PI * 2);
+    c.stroke();
+    // eye line
+    const eyeY = cy - r * 0.18;
+    c.beginPath(); c.moveTo(cx - r * 0.42, eyeY); c.lineTo(cx + r * 0.42, eyeY); c.stroke();
+    c.setLineDash([]);
+    // eye targets
+    c.fillStyle = "rgba(255,255,255,0.5)";
+    c.beginPath(); c.arc(cx - r * 0.22, eyeY, r * 0.05, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(cx + r * 0.22, eyeY, r * 0.05, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
+
   function renderSelfieComposer() {
     const cv = $("selfieCanvas");
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1771,6 +1793,9 @@
       c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
       c.setLineDash([]);
     }
+    // The face guide sits on top in both states (composer only — never baked
+    // into the shared card).
+    drawFaceGuide(c, cx, cy, r);
   }
 
   async function loadSelfie(file) {
@@ -1791,7 +1816,7 @@
     $("selfieZoom").value = "1";
     $("selfieZoom").disabled = false;
     $("btnSelfieShare").disabled = false;
-    $("selfieHint").textContent = "Drag to move · pinch or slide to zoom";
+    $("selfieHint").textContent = "Line your eyes up with the dotted line · drag & pinch";
     renderSelfieComposer();
   }
 
@@ -1800,7 +1825,7 @@
     $("selfieZoom").disabled = !selfieState.img;
     $("btnSelfieShare").disabled = !selfieState.img;
     $("selfieHint").textContent = selfieState.img
-      ? "Drag to move · pinch or slide to zoom"
+      ? "Line your eyes up with the dotted line · drag & pinch"
       : 'Tap "Choose photo" to start 📷';
     requestAnimationFrame(renderSelfieComposer);
   }
