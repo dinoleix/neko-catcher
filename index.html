@@ -619,7 +619,7 @@
   <section id="screen-game" class="screen">
     <div class="hud">
       <div class="score-box">
-        <div class="score-label">Score</div>
+        <div class="score-label">Cats</div>
         <div id="scoreValue" class="score-value">0</div>
       </div>
       <div id="livesBox" class="lives-box">
@@ -1164,10 +1164,10 @@
       if (dx * dx + dy * dy <= r * r) {
         c.caught = true;
         c.catchAnim = 1;
-        const points = Math.round(10 * state.speedMul);
-        state.score += points;
+        // Score = actual number of cats caught (1 per cat).
+        state.score += 1;
         updateHUD();
-        popText(c.x, c.y, "+" + points);
+        popText(c.x, c.y, "+1 🐾");
         playCatch();
         return;
       }
