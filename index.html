@@ -433,6 +433,16 @@
     margin-top: 10px;
   }
   .submit-status.error { color: var(--sakura); }
+  .rank-line {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--matcha-bright);
+    margin: -14px 0 22px;
+    min-height: 18px;
+  }
+  .rank-line:empty { margin: 0; min-height: 0; }
+  .rank-line .gap { color: var(--sakura); }
 
   /* ---------- LEADERBOARD ---------- */
   .lb-wrap {
@@ -460,6 +470,15 @@
     text-transform: uppercase;
     color: var(--cream);
     opacity: 0.7;
+  }
+  .lb-countdown {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--matcha-bright);
+    margin-top: 6px;
+    min-height: 15px;
   }
   .lb-list {
     flex: 1;
@@ -641,6 +660,7 @@
       <div class="over-sub">ねこ キャッチ 終了</div>
       <div id="finalScore" class="final-score">0</div>
       <div class="final-label">Cats Caught</div>
+      <div id="rankLine" class="rank-line"></div>
 
       <button id="btnSubmit" class="btn btn-primary">📤 Submit Score</button>
       <button id="btnShare" class="btn btn-ghost">📸 Share my score</button>
@@ -656,6 +676,7 @@
       <div class="lb-header">
         <h2 id="lbTitle" class="lb-title">🏆 Top Catchers</h2>
         <div id="lbSub" class="lb-sub">Resets every Monday · Top 10</div>
+        <div id="lbCountdown" class="lb-countdown"></div>
       </div>
       <div class="lb-tabs">
         <button id="tabWeek" class="lb-tab active">This Week</button>
@@ -742,6 +763,23 @@
       where("week", "==", weekKey),
       orderBy("score", "desc"),
       limit(10)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data());
+  };
+
+  // Full weekly list (not capped at 10) so we can compute a player's rank
+  // even when they're outside the visible top 10.
+  window.__nekoFetchWeeklyAll = async function() {
+    if (!firestoreReady) throw new Error("offline");
+    const { collection, query, where, orderBy, limit, getDocs } = firestoreApi;
+    const weekKey = getWeekKey();
+    const q = query(
+      collection(db, "scores"),
+      where("game", "==", GAME_ID),
+      where("week", "==", weekKey),
+      orderBy("score", "desc"),
+      limit(500)
     );
     const snap = await getDocs(q);
     return snap.docs.map(d => d.data());
@@ -1343,6 +1381,7 @@
     $("submitStatus").classList.remove("error");
     $("btnSubmit").disabled = false;
     $("btnSubmit").textContent = "📤 Submit Score";
+    $("rankLine").textContent = "";
     showScreen("over");
   }
 
@@ -1394,6 +1433,7 @@
       await window.__nekoSubmitScore(state.playerName, state.score);
       status.textContent = "✓ Submitted! Good luck 🍀";
       btn.textContent = "✓ Submitted";
+      showRankLine();
     } catch (err) {
       console.warn(err);
       status.classList.add("error");
@@ -1409,6 +1449,29 @@
       btn.textContent = "↻ Retry Submit";
     }
   });
+
+  // After a successful submit, show where the player lands this week and how
+  // far they are from the next rank up. Best-effort: never blocks on errors.
+  async function showRankLine() {
+    const el = $("rankLine");
+    try {
+      const all = dedupeByName(await window.__nekoFetchWeeklyAll());
+      const meKey = String(state.playerName || "").trim().toLowerCase();
+      const idx = all.findIndex(r => String(r.name || "").trim().toLowerCase() === meKey);
+      if (idx < 0) return;
+      const rank = idx + 1;
+      if (rank === 1) {
+        el.innerHTML = "You're #1 this week! 🏆";
+      } else {
+        const gap = (all[idx - 1].score || 0) - (all[idx].score || 0);
+        const noun = gap === 1 ? "cat" : "cats";
+        el.innerHTML = "You're #" + rank + " this week · <span class=\"gap\">" +
+          gap + " " + noun + "</span> behind #" + (rank - 1);
+      }
+    } catch (_) {
+      // Rank is a nice-to-have; leave the line blank on any failure.
+    }
+  }
 
   // ----- Share my score -----
   const SHARE_URL = "neko-catcher.vercel.app";
@@ -1548,10 +1611,55 @@
     return [...best.values()].sort((a, b) => (b.score || 0) - (a.score || 0));
   }
 
+  // ----- Weekly reset countdown (week tab only) -----
+  let lbCountdownTimer = null;
+
+  // Next Monday 00:00 local time (matches getWeekKey's ISO week reset).
+  function nextWeeklyReset() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    let daysToMon = ((1 - d.getDay()) + 7) % 7; // getDay: 0=Sun..6=Sat
+    if (daysToMon === 0) daysToMon = 7;          // already Monday -> next one
+    d.setDate(d.getDate() + daysToMon);
+    return d;
+  }
+
+  function fmtCountdown(ms) {
+    if (ms < 0) ms = 0;
+    const totalMin = Math.floor(ms / 60000);
+    const d = Math.floor(totalMin / 1440);
+    const h = Math.floor((totalMin % 1440) / 60);
+    const m = totalMin % 60;
+    if (d > 0) return "Resets in " + d + "d " + h + "h " + m + "m";
+    if (h > 0) return "Resets in " + h + "h " + m + "m";
+    return "Resets in " + m + "m";
+  }
+
+  function tickCountdown() {
+    $("lbCountdown").textContent = fmtCountdown(nextWeeklyReset().getTime() - Date.now());
+  }
+
+  function startCountdown() {
+    stopCountdown();
+    $("lbCountdown").style.display = "";
+    tickCountdown();
+    lbCountdownTimer = setInterval(tickCountdown, 60000);
+  }
+
+  function stopCountdown() {
+    if (lbCountdownTimer) { clearInterval(lbCountdownTimer); lbCountdownTimer = null; }
+  }
+
   async function openLeaderboard(mode) {
     lbMode = mode || "week";
     showScreen("lb");
     updateLbTabs();
+    if (lbMode === "week") {
+      startCountdown();
+    } else {
+      stopCountdown();
+      $("lbCountdown").style.display = "none";
+    }
     const list = $("lbList");
     list.innerHTML = '<div class="lb-loading">Loading...</div>';
     try {
@@ -1595,6 +1703,7 @@
   }
 
   $("btnLbBack").addEventListener("click", () => {
+    stopCountdown();
     showScreen(state.score > 0 && !state.running ? "over" : "start");
   });
 
