@@ -570,14 +570,23 @@
     text-align: center;
   }
   .lb-row.top1 .lb-rank { color: gold; }
-  .lb-name {
+  .lb-namewrap {
     flex: 1;
+    min-width: 0;
+  }
+  .lb-name {
     font-weight: 700;
     color: var(--white);
     font-size: 15px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .lb-date {
+    font-size: 11px;
+    color: var(--cream);
+    opacity: 0.55;
+    margin-top: 2px;
   }
   .lb-score {
     font-weight: 900;
@@ -694,7 +703,7 @@
 
     <div class="prize-banner">
       Top 3 catchers each win a <strong>FREE boba</strong> every week! 🧋
-      <button id="btnConditions" class="conditions-link" type="button">*Conditions apply</button>
+      <button id="btnConditions" class="conditions-link" type="button">*Terms &amp; Conditions apply</button>
     </div>
   </section>
 
@@ -761,12 +770,15 @@
   <!-- PRIZE CONDITIONS MODAL -->
   <div id="conditionsModal" class="modal" hidden>
     <div class="modal-card">
-      <h3 class="modal-title">🧋 Prize Conditions</h3>
+      <h3 class="modal-title">🧋 Terms &amp; Conditions</h3>
       <ul class="modal-list">
-        <li>The game runs in <strong>weekly cycles: Monday to Sunday</strong>. The leaderboard resets every Monday.</li>
+        <li>The game runs in <strong>weekly cycles</strong>: Monday 00:00 to Sunday 23:59. The leaderboard <strong>resets every Monday at midnight</strong>.</li>
         <li>Each week's <strong>Top 3 catchers</strong> on the leaderboard each win a <strong>FREE boba</strong>.</li>
         <li>To claim, the winner must <strong>post this game to their Instagram story</strong> and tag <strong>@greenneko.eats</strong>.</li>
-        <li>Show the story to our staff in-store to redeem. One boba per winner, per week.</li>
+        <li>The story must be posted from the <strong>same Instagram handle entered in the game</strong>. Staff verify your handle against your post before awarding the prize.</li>
+        <li><strong>Claim within 7 days</strong> of the week ending — <strong>unclaimed rewards expire</strong>.</li>
+        <li>Redeem in-store. One boba per winner, per week.</li>
+        <li>Your Instagram handle and play date are shown on the public leaderboard.</li>
       </ul>
       <button id="btnConditionsClose" class="btn btn-primary">Got it! 🐾</button>
     </div>
@@ -827,6 +839,8 @@
       name: name.slice(0, 30),
       score: Math.max(0, Math.floor(score)),
       createdAt: serverTimestamp(),
+      // Readable local play date (YYYY-MM-DD) for easy winner validation.
+      playedOn: new Date().toLocaleDateString("en-CA"),
       week: getWeekKey()
     });
   };
@@ -1788,14 +1802,31 @@
     list.innerHTML = rows.map((r, i) => {
       const cls = i === 0 ? "top1" : i === 1 ? "top2" : i === 2 ? "top3" : "";
       const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+      const played = formatPlayedDate(r.createdAt);
+      const dateLine = played ? `<div class="lb-date">Played ${escape(played)}</div>` : "";
       return `
         <div class="lb-row ${cls}">
           <div class="lb-rank">${medal}</div>
-          <div class="lb-name">${escape(displayHandle(r.name))}</div>
+          <div class="lb-namewrap">
+            <div class="lb-name">${escape(displayHandle(r.name))}</div>
+            ${dateLine}
+          </div>
           <div class="lb-score">${escape(r.score)}</div>
         </div>
       `;
     }).join("");
+  }
+
+  // Firestore serverTimestamp -> "Mon, Jun 30". Null while a just-written
+  // timestamp is still pending on the server.
+  function formatPlayedDate(ts) {
+    try {
+      const d = ts && typeof ts.toDate === "function" ? ts.toDate() : null;
+      if (!d) return "";
+      return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    } catch (_) {
+      return "";
+    }
   }
 
   $("btnLbBack").addEventListener("click", () => {
