@@ -217,6 +217,59 @@
     z-index: 2;
   }
   .prize-banner strong { color: var(--sakura); }
+  .conditions-link {
+    display: block;
+    margin: 8px auto 0;
+    background: none;
+    border: none;
+    color: var(--matcha-bright);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-decoration: underline;
+    opacity: 0.85;
+    cursor: pointer;
+  }
+
+  /* ---------- MODAL ---------- */
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .modal[hidden] { display: none; }
+  .modal-card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--deep-green);
+    border: 1px solid rgba(168,198,108,0.35);
+    border-radius: 20px;
+    padding: 24px 22px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .modal-title {
+    margin: 0 0 16px;
+    color: var(--matcha-bright);
+    font-size: 20px;
+    font-weight: 900;
+    text-align: center;
+  }
+  .modal-list {
+    margin: 0 0 20px;
+    padding-left: 20px;
+    color: var(--cream);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .modal-list li { margin-bottom: 12px; }
+  .modal-list strong { color: var(--matcha-bright); }
 
   .input-error {
     color: var(--sakura);
@@ -641,6 +694,7 @@
 
     <div class="prize-banner">
       Top 3 catchers each win a <strong>FREE boba</strong> every week! 🧋
+      <button id="btnConditions" class="conditions-link" type="button">*Conditions apply</button>
     </div>
   </section>
 
@@ -703,6 +757,20 @@
 
   <div id="offlineToast" class="offline-toast">Offline mode · scores won't sync</div>
   <div id="shareToast" class="offline-toast">Image saved — share it manually! 📷</div>
+
+  <!-- PRIZE CONDITIONS MODAL -->
+  <div id="conditionsModal" class="modal" hidden>
+    <div class="modal-card">
+      <h3 class="modal-title">🧋 Prize Conditions</h3>
+      <ul class="modal-list">
+        <li>The game runs in <strong>weekly cycles: Monday to Sunday</strong>. The leaderboard resets every Monday.</li>
+        <li>Each week's <strong>Top 3 catchers</strong> on the leaderboard each win a <strong>FREE boba</strong>.</li>
+        <li>To claim, the winner must <strong>post this game to their Instagram story</strong> and tag <strong>@greennekocafe</strong>.</li>
+        <li>Show the story to our staff in-store to redeem. One boba per winner, per week.</li>
+      </ul>
+      <button id="btnConditionsClose" class="btn btn-primary">Got it! 🐾</button>
+    </div>
+  </div>
 </div>
 
 <!-- Firebase (loaded as ES modules from CDN) -->
@@ -1434,6 +1502,13 @@
   });
 
   $("btnLeaderboard").addEventListener("click", () => openLeaderboard());
+
+  // ----- Prize conditions modal -----
+  $("btnConditions").addEventListener("click", () => { $("conditionsModal").hidden = false; });
+  $("btnConditionsClose").addEventListener("click", () => { $("conditionsModal").hidden = true; });
+  $("conditionsModal").addEventListener("click", (e) => {
+    if (e.target === $("conditionsModal")) $("conditionsModal").hidden = true; // tap backdrop to close
+  });
 
   // ----- Game over handlers -----
   $("btnPlayAgain").addEventListener("click", () => {
