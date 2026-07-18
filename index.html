@@ -584,7 +584,13 @@
     flex: 1;
     min-width: 0;
   }
+  .lb-nameline {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
   .lb-name {
+    min-width: 0;
     font-weight: 700;
     color: var(--white);
     font-size: 15px;
@@ -635,16 +641,17 @@
   }
   .lb-tab {
     flex: 1;
-    padding: 10px 8px;
+    padding: 10px 4px;
     border: none;
     border-radius: 999px;
     background: transparent;
     color: var(--cream);
     opacity: 0.65;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 800;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
     cursor: pointer;
     transition: background 0.2s, color 0.2s, opacity 0.2s;
   }
@@ -654,6 +661,20 @@
     opacity: 1;
   }
   .lb-tab:not(.active):active { background: rgba(168,198,108,0.12); }
+  .lb-winner-tag {
+    display: inline-block;
+    flex-shrink: 0;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(255,215,0,0.2);
+    border: 1px solid rgba(255,215,0,0.5);
+    color: gold;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    vertical-align: middle;
+  }
 
   .offline-toast {
     position: absolute;
@@ -763,6 +784,7 @@
       </div>
       <div class="lb-tabs">
         <button id="tabWeek" class="lb-tab active">This Week</button>
+        <button id="tabLast" class="lb-tab">Last Week</button>
         <button id="tabAll" class="lb-tab">All-Time</button>
       </div>
       <div id="lbList" class="lb-list">
@@ -900,9 +922,24 @@
     return snap.docs.map(d => d.data());
   };
 
-  function getWeekKey() {
+  // All scores for a given week key (used by This Week + Last Week tabs).
+  window.__nekoFetchWeekAll = async function(weekKey) {
+    if (!firestoreReady) throw new Error("offline");
+    const { collection, query, where, orderBy, limit, getDocs } = firestoreApi;
+    const q = query(
+      collection(db, "scores"),
+      where("game", "==", GAME_ID),
+      where("week", "==", weekKey),
+      orderBy("score", "desc"),
+      limit(500)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => d.data());
+  };
+
+  function getWeekKey(baseDate) {
     // ISO week (Mon-Sun) — yyyy-Www
-    const d = new Date();
+    const d = baseDate ? new Date(baseDate) : new Date();
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
     const week1 = new Date(d.getFullYear(), 0, 4);
@@ -910,6 +947,12 @@
     return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
   }
   window.__nekoWeekKey = getWeekKey;
+  // ISO week key for 7 days ago (handles year boundaries correctly).
+  window.__nekoLastWeekKey = function() {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return getWeekKey(d);
+  };
 
   initFirebase();
 </script>
@@ -1711,14 +1754,24 @@
   $("btnShare").addEventListener("click", () => shareScore());
 
   // ----- Leaderboard -----
-  let lbMode = "week"; // "week" | "all"
+  let lbMode = "week"; // "week" | "last" | "all"
 
   function updateLbTabs() {
-    const week = lbMode === "week";
-    $("tabWeek").classList.toggle("active", week);
-    $("tabAll").classList.toggle("active", !week);
-    $("lbTitle").textContent = week ? "🏆 This Week's Top Catchers" : "🏆 All-Time Top Catchers";
-    $("lbSub").textContent = week ? "Resets every Monday · Top 10" : "Best scores ever · Top 10";
+    $("tabWeek").classList.toggle("active", lbMode === "week");
+    $("tabLast").classList.toggle("active", lbMode === "last");
+    $("tabAll").classList.toggle("active", lbMode === "all");
+    const titles = {
+      week: "🏆 This Week's Top Catchers",
+      last: "🏆 Last Week's Winners",
+      all: "🏆 All-Time Top Catchers"
+    };
+    const subs = {
+      week: "Resets every Monday · Top 10",
+      last: "Top 3 each win a boba 🧋 · Top 10 shown",
+      all: "Best scores ever · Top 10"
+    };
+    $("lbTitle").textContent = titles[lbMode];
+    $("lbSub").textContent = subs[lbMode];
   }
 
   // Keep only each player's best score, highest first.
@@ -1770,14 +1823,24 @@
     if (lbCountdownTimer) { clearInterval(lbCountdownTimer); lbCountdownTimer = null; }
   }
 
+  // Last week's winners must claim before this week ends (the Sunday before
+  // the next Monday reset).
+  function formatClaimBy() {
+    const sunday = new Date(nextWeeklyReset().getTime() - 24 * 60 * 60 * 1000);
+    return "Claim by " + sunday.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  }
+
   async function openLeaderboard(mode) {
     lbMode = mode || "week";
     showScreen("lb");
     updateLbTabs();
+    stopCountdown();
     if (lbMode === "week") {
-      startCountdown();
+      startCountdown();                         // live "Resets in …" ticker
+    } else if (lbMode === "last") {
+      $("lbCountdown").style.display = "";
+      $("lbCountdown").textContent = formatClaimBy();
     } else {
-      stopCountdown();
       $("lbCountdown").style.display = "none";
     }
     const list = $("lbList");
@@ -1787,8 +1850,10 @@
       let rows;
       if (lbMode === "all") {
         rows = dedupeByName(await window.__nekoFetchAllTime()).slice(0, 10);
+      } else if (lbMode === "last") {
+        rows = dedupeByName(await window.__nekoFetchWeekAll(window.__nekoLastWeekKey())).slice(0, 10);
       } else {
-        rows = await window.__nekoFetchLeaderboard();
+        rows = dedupeByName(await window.__nekoFetchWeekAll(window.__nekoWeekKey())).slice(0, 10);
       }
       renderLeaderboard(rows);
     } catch (err) {
@@ -1797,12 +1862,15 @@
   }
 
   $("tabWeek").addEventListener("click", () => { if (lbMode !== "week") openLeaderboard("week"); });
+  $("tabLast").addEventListener("click", () => { if (lbMode !== "last") openLeaderboard("last"); });
   $("tabAll").addEventListener("click", () => { if (lbMode !== "all") openLeaderboard("all"); });
 
   function renderLeaderboard(rows) {
     const list = $("lbList");
     if (!rows || rows.length === 0) {
-      const msg = lbMode === "all" ? "No scores yet.<br/>Be the first! 🐾" : "No scores yet this week.<br/>Be the first! 🐾";
+      const msg = lbMode === "all" ? "No scores yet.<br/>Be the first! 🐾"
+        : lbMode === "last" ? "No winners last week.<br/>Play this week to be one! 🐾"
+        : "No scores yet this week.<br/>Be the first! 🐾";
       list.innerHTML = '<div class="lb-empty">' + msg + '</div>';
       return;
     }
@@ -1814,11 +1882,16 @@
       const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
       const played = formatPlayedDate(r.createdAt);
       const dateLine = played ? `<div class="lb-date">Played ${escape(played)}</div>` : "";
+      // On the Last Week tab, flag the top 3 as the prize winners.
+      const winnerTag = (lbMode === "last" && i < 3) ? '<span class="lb-winner-tag">WINNER</span>' : "";
       return `
         <div class="lb-row ${cls}">
           <div class="lb-rank">${medal}</div>
           <div class="lb-namewrap">
-            <div class="lb-name">${escape(displayHandle(r.name))}</div>
+            <div class="lb-nameline">
+              <div class="lb-name">${escape(displayHandle(r.name))}</div>
+              ${winnerTag}
+            </div>
             ${dateLine}
           </div>
           <div class="lb-score">${escape(r.score)}</div>
