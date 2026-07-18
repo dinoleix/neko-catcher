@@ -855,6 +855,9 @@
       firestoreApi = fsMod;
       firestoreReady = true;
       window.__nekoOffline = false;
+      // Warm the Firestore connection + preload the leaderboard so the first
+      // open is instant instead of paying the connection + round-trip cost.
+      if (window.__nekoPrefetch) window.__nekoPrefetch();
     } catch (err) {
       console.warn("[NekoCatcher] Firebase init failed — running offline.", err);
       window.__nekoOffline = true;
@@ -1597,6 +1600,7 @@
       status.textContent = "✓ Submitted! Good luck 🍀";
       btn.textContent = "✓ Submitted";
       showRankLine();
+      prefetchLeaderboard(); // refresh cache so the board shows the new score
     } catch (err) {
       console.warn(err);
       status.classList.add("error");
@@ -1830,8 +1834,36 @@
     return "Claim by " + sunday.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
   }
 
+  // Cache of the last-fetched rows per tab, keyed by the week it belongs to
+  // so a week rollover never shows stale data. { week:{key,rows}, ... }
+  const lbCache = {};
+
+  function lbKeyFor(mode) {
+    if (mode === "all") return "all";
+    if (mode === "last") return window.__nekoLastWeekKey();
+    return window.__nekoWeekKey();
+  }
+
+  async function fetchLbRows(mode) {
+    if (mode === "all") return dedupeByName(await window.__nekoFetchAllTime()).slice(0, 10);
+    const key = mode === "last" ? window.__nekoLastWeekKey() : window.__nekoWeekKey();
+    return dedupeByName(await window.__nekoFetchWeekAll(key)).slice(0, 10);
+  }
+
+  // Preload + connection-warm the This Week board (called once Firebase is
+  // ready, and after each score submit) so opening the leaderboard is instant.
+  async function prefetchLeaderboard() {
+    try {
+      if (window.__nekoOffline) return;
+      const key = window.__nekoWeekKey();
+      lbCache.week = { key, rows: dedupeByName(await window.__nekoFetchWeekAll(key)).slice(0, 10) };
+    } catch (_) {}
+  }
+  window.__nekoPrefetch = prefetchLeaderboard;
+
   async function openLeaderboard(mode) {
     lbMode = mode || "week";
+    const myMode = lbMode;
     showScreen("lb");
     updateLbTabs();
     stopCountdown();
@@ -1844,20 +1876,21 @@
       $("lbCountdown").style.display = "none";
     }
     const list = $("lbList");
-    list.innerHTML = '<div class="lb-loading">Loading...</div>';
+    const key = lbKeyFor(myMode);
+    const cached = lbCache[myMode];
+    // Instant paint from cache; otherwise show the spinner.
+    if (cached && cached.key === key) renderLeaderboard(cached.rows);
+    else list.innerHTML = '<div class="lb-loading">Loading...</div>';
+    // Always refresh in the background.
     try {
       if (window.__nekoOffline) throw new Error("offline");
-      let rows;
-      if (lbMode === "all") {
-        rows = dedupeByName(await window.__nekoFetchAllTime()).slice(0, 10);
-      } else if (lbMode === "last") {
-        rows = dedupeByName(await window.__nekoFetchWeekAll(window.__nekoLastWeekKey())).slice(0, 10);
-      } else {
-        rows = dedupeByName(await window.__nekoFetchWeekAll(window.__nekoWeekKey())).slice(0, 10);
-      }
-      renderLeaderboard(rows);
+      const rows = await fetchLbRows(myMode);
+      lbCache[myMode] = { key, rows };
+      if (lbMode === myMode) renderLeaderboard(rows); // ignore if user switched tabs
     } catch (err) {
-      list.innerHTML = '<div class="lb-empty">Leaderboard offline right now.<br/>Ask staff to check connectivity!</div>';
+      if (lbMode === myMode && !(cached && cached.key === key)) {
+        list.innerHTML = '<div class="lb-empty">Leaderboard offline right now.<br/>Ask staff to check connectivity!</div>';
+      }
     }
   }
 
