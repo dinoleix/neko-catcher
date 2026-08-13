@@ -3,15 +3,33 @@ rules_version = '2';
 // ============================================================
 // GreenNeko shared Firestore rules (project: games-dd1a8)
 // ------------------------------------------------------------
-// This project's database is shared by multiple games:
-//   • Cat Hunt Café  -> "leaderboard" + "prizes" collections
-//   • Neko Catcher   -> "scores" collection (this PWA)
+// This project's database is shared by multiple games. Deploying rules
+// REPLACES the whole ruleset, so this file must contain EVERY game's block
+// or the missing ones break. Current games:
+//   • Cat Hunt Café  -> "leaderboard" + "prizes"
+//   • Neko Catcher   -> "scores" (this PWA)
+//   • Green Neko game -> "green_neko_leaderboard"
 //
-// Each game uses its OWN collection, so leaderboards stay separate.
-// When adding a new game, give it its own collection + rule block here.
+// When adding a new game, ADD its collection block here — never replace.
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // =====================================================
+    // Green Neko game  (uses green_neko_leaderboard)
+    // =====================================================
+    match /green_neko_leaderboard/{entryId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['name', 'score', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 1000000
+        && request.resource.data.updatedAt is number;
+      allow delete: if false;
+    }
 
     // =====================================================
     // Cat Hunt Café  (existing game — left exactly as-is)
