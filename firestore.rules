@@ -2,6 +2,8 @@ rules_version = '2';
 
 // ============================================================
 // GreenNeko shared Firestore rules (project: games-dd1a8)
+// CANONICAL SOURCE OF TRUTH — every game deploys THIS file. See
+// SHARED_FIRESTORE.md for the workflow.
 // ------------------------------------------------------------
 // This project's database is shared by multiple games. Deploying rules
 // REPLACES the whole ruleset, so this file must contain EVERY game's block
